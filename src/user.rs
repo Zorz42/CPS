@@ -1,6 +1,13 @@
 use crate::id::GenericId;
+use crate::{create_html_response, GlobalState, RedirectSite};
+use anyhow::Result;
+use askama::Template;
 use bcrypt::{hash, verify, DEFAULT_COST};
-use hyper::Request;
+use http_body_util::BodyExt;
+use http_body_util::Full;
+use hyper::body::{Bytes, Incoming};
+use hyper::header::SET_COOKIE;
+use hyper::{Request, Response};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -9,6 +16,12 @@ const TOKEN_EXPIRY: Duration = Duration::from_secs(60 * 60);
 
 pub type UserId = GenericId;
 pub type UserToken = GenericId;
+
+#[derive(Template)]
+#[template(path = "login.html")]
+pub struct LoginSite {
+    error_message: String,
+}
 
 pub struct User {
     pub username: String,
@@ -151,4 +164,62 @@ pub fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<UserT
 
             None
         })
+}
+
+pub async fn handle_login_form(
+    global: &GlobalState,
+    request: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>> {
+    let body = request.into_body().collect().await?.to_bytes();
+    let body = String::from_utf8_lossy(&body).to_string();
+    let (username, password) = parse_login_string(&body);
+
+    let mut users = global.users();
+    return if let Some(id) = users.try_login(&username, &password) {
+        let token = users.add_token(id);
+
+        let mut response = create_html_response(RedirectSite {
+            url: "/".to_owned(),
+        })?;
+
+        response.headers_mut().append(
+            SET_COOKIE,
+            format!("login_token={}", token.to_int()).parse()?,
+        );
+
+        Ok(response)
+    } else {
+        let error_message = {
+            if users.get_user_id_by_username(&username).is_none() {
+                "User does not exist".to_owned()
+            } else {
+                "Invalid password".to_owned()
+            }
+        };
+
+        let response = create_html_response(LoginSite { error_message })?;
+
+        Ok(response)
+    };
+}
+
+pub async fn handle_logout_form(
+    global: &GlobalState,
+    token: Option<UserToken>,
+) -> Result<Response<Full<Bytes>>> {
+    let response = create_html_response(RedirectSite {
+        url: "/".to_owned(),
+    })?;
+
+    if let Some(token) = token {
+        global.users().remove_token(token);
+    }
+
+    return Ok(response);
+}
+
+pub fn create_login_page() -> Result<Response<Full<Bytes>>> {
+    Ok(create_html_response(LoginSite {
+        error_message: "".to_owned(),
+    })?)
 }

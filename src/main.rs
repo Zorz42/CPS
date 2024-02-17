@@ -11,12 +11,13 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use crate::contest::{ContestDatabase, ContestId};
 use crate::problem::{ProblemDatabase, ProblemId};
 use crate::submission::SubmissionDatabase;
-use crate::user::{get_login_token, parse_login_string, UserDatabase};
+use crate::user::{
+    create_login_page, get_login_token, handle_login_form, handle_logout_form, UserDatabase, UserId,
+};
 use anyhow::Result;
 use askama::Template;
-use http_body_util::{BodyExt, Full};
-use hyper::body::Bytes;
-use hyper::header::SET_COOKIE;
+use http_body_util::Full;
+use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -24,7 +25,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 
 #[derive(Clone)]
-struct GlobalState {
+pub struct GlobalState {
     users: Arc<Mutex<UserDatabase>>,
     contests: Arc<Mutex<ContestDatabase>>,
     problems: Arc<Mutex<ProblemDatabase>>,
@@ -60,30 +61,24 @@ impl GlobalState {
     }
 }
 
-fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
+pub fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
     let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
     Ok(response)
 }
 
 #[derive(Template)]
 #[template(path = "redirect.html")]
-struct RedirectSite {
+pub struct RedirectSite {
     url: String,
 }
 
 #[derive(Template)]
 #[template(path = "not_found.html")]
-struct NotFoundSite;
-
-#[derive(Template)]
-#[template(path = "login.html")]
-struct LoginSite {
-    error_message: String,
-}
+pub struct NotFoundSite;
 
 #[derive(Template)]
 #[template(path = "main.html")]
-struct MainSite {
+pub struct MainSite {
     logged_in: bool,
     username: String,
     contests: Vec<(u128, String)>,
@@ -91,21 +86,49 @@ struct MainSite {
 
 #[derive(Template)]
 #[template(path = "contest.html")]
-struct ContestSite {
+pub struct ContestSite {
     contest_id: u128,
     problems: Vec<(u128, String)>,
 }
 
 #[derive(Template)]
 #[template(path = "problem.html")]
-struct ProblemSite {
+pub struct ProblemSite {
     contest_id: u128,
     problem_id: u128,
     problem_name: String,
 }
 
+pub fn create_main_page(
+    global: &GlobalState,
+    user: Option<UserId>,
+) -> Result<Response<Full<Bytes>>> {
+    let mut contests = Vec::new();
+    if let Some(user) = user {
+        let contests_obj = global.contests();
+        contests = contests_obj
+            .get_available_contests(user)
+            .iter()
+            .map(|id| {
+                (
+                    id.to_int(),
+                    contests_obj.get_contest(*id).unwrap().name.clone(),
+                )
+            })
+            .collect();
+    }
+
+    Ok(create_html_response(MainSite {
+        logged_in: user.is_some(),
+        username: user
+            .map(|id| global.users().get_user(id).unwrap().username.clone())
+            .unwrap_or_default(),
+        contests,
+    })?)
+}
+
 async fn handle_request(
-    request: Request<hyper::body::Incoming>,
+    request: Request<Incoming>,
     global: &GlobalState,
 ) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
@@ -114,48 +137,10 @@ async fn handle_request(
     if request.method() == hyper::Method::POST {
         match request.uri().path() {
             "/login" => {
-                let body = request.into_body().collect().await?.to_bytes();
-                let body = String::from_utf8_lossy(&body).to_string();
-                let (username, password) = parse_login_string(&body);
-
-                let mut users = global.users();
-                return if let Some(id) = users.try_login(&username, &password) {
-                    let token = users.add_token(id);
-
-                    let mut response = create_html_response(RedirectSite {
-                        url: "/".to_owned(),
-                    })?;
-
-                    response.headers_mut().append(
-                        SET_COOKIE,
-                        format!("login_token={}", token.to_int()).parse()?,
-                    );
-
-                    Ok(response)
-                } else {
-                    let error_message = {
-                        if users.get_user_id_by_username(&username).is_none() {
-                            "User does not exist".to_owned()
-                        } else {
-                            "Invalid password".to_owned()
-                        }
-                    };
-
-                    let response = create_html_response(LoginSite { error_message })?;
-
-                    Ok(response)
-                };
+                return handle_login_form(global, request).await;
             }
             "/logout" => {
-                let response = create_html_response(RedirectSite {
-                    url: "/".to_owned(),
-                })?;
-
-                if let Some(token) = token {
-                    global.users().remove_token(token);
-                }
-
-                return Ok(response);
+                return handle_logout_form(global, token).await;
             }
             _ => {}
         }
@@ -166,35 +151,12 @@ async fn handle_request(
 
     // if the path is empty, we are at the root of the website
     if parts.is_empty() {
-        let mut contests = Vec::new();
-        if let Some(user) = user {
-            let contests_obj = global.contests();
-            contests = contests_obj
-                .get_available_contests(user)
-                .iter()
-                .map(|id| {
-                    (
-                        id.to_int(),
-                        contests_obj.get_contest(*id).unwrap().name.clone(),
-                    )
-                })
-                .collect();
-        }
-
-        return Ok(create_html_response(MainSite {
-            logged_in: user.is_some(),
-            username: user
-                .map(|id| global.users().get_user(id).unwrap().username.clone())
-                .unwrap_or_default(),
-            contests,
-        })?);
+        return create_main_page(global, user);
     }
 
     // if the path is ["login"], we are at the login page
     if parts == ["login"] {
-        return Ok(create_html_response(LoginSite {
-            error_message: "".to_owned(),
-        })?);
+        return create_login_page();
     }
 
     if parts.len() == 2 && parts[0] == "contest" {
