@@ -1,8 +1,16 @@
+mod contest;
+mod id;
+mod problem;
+mod submission;
+mod test;
 mod user;
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use crate::contest::ContestDatabase;
+use crate::problem::ProblemDatabase;
+use crate::submission::SubmissionDatabase;
 use crate::user::{get_login_token, parse_login_string, UserDatabase};
 use anyhow::Result;
 use askama::Template;
@@ -18,17 +26,37 @@ use tokio::net::TcpListener;
 #[derive(Clone)]
 struct GlobalState {
     users: Arc<Mutex<UserDatabase>>,
+    contests: Arc<Mutex<ContestDatabase>>,
+    problems: Arc<Mutex<ProblemDatabase>>,
+    submissions: Arc<Mutex<SubmissionDatabase>>,
 }
 
 impl GlobalState {
     fn new() -> GlobalState {
         GlobalState {
             users: Arc::new(Mutex::new(UserDatabase::new())),
+            contests: Arc::new(Mutex::new(ContestDatabase::new())),
+            problems: Arc::new(Mutex::new(ProblemDatabase::new())),
+            submissions: Arc::new(Mutex::new(SubmissionDatabase::new())),
         }
     }
 
     fn users(&self) -> MutexGuard<UserDatabase> {
         self.users.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn contests(&self) -> MutexGuard<ContestDatabase> {
+        self.contests.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn problems(&self) -> MutexGuard<ProblemDatabase> {
+        self.problems.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn submissions(&self) -> MutexGuard<SubmissionDatabase> {
+        self.submissions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -114,13 +142,19 @@ async fn handle_request(
     };
 }
 
+// this function is used to initialize the temporary data
+// it will be later replaced by a database
+fn init_temporary_data() -> GlobalState {
+    let global = GlobalState::new();
+    global.users().add_user("admin", "admin");
+    global
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
-    let global = GlobalState::new();
-
-    global.users().add_user("admin", "admin");
+    let global = init_temporary_data();
 
     loop {
         let (stream, _) = listener.accept().await?;

@@ -1,3 +1,4 @@
+use crate::id::GenericId;
 use bcrypt::{hash, verify, DEFAULT_COST};
 use hyper::Request;
 use std::collections::HashMap;
@@ -5,6 +6,8 @@ use std::time::Duration;
 use tokio::time::Instant;
 
 const TOKEN_EXPIRY: Duration = Duration::from_secs(10);
+
+pub type UserId = GenericId;
 
 pub struct User {
     pub username: String,
@@ -21,9 +24,9 @@ impl User {
 }
 
 pub struct UserDatabase {
-    users: HashMap<u128, User>,
-    usernames: HashMap<String, u128>,
-    tokens: HashMap<u128, u128>,
+    users: HashMap<UserId, User>,
+    usernames: HashMap<String, UserId>,
+    tokens: HashMap<u128, UserId>,
     token_expiry: HashMap<u128, Instant>,
 }
 
@@ -37,27 +40,27 @@ impl UserDatabase {
         }
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str) -> u128 {
-        let id = rand::random();
+    pub fn add_user(&mut self, username: &str, password: &str) -> UserId {
+        let id = UserId::new();
         self.users.insert(id, User::new(username, password));
         self.usernames.insert(username.to_string(), id);
         id
     }
 
-    pub fn get_user(&self, id: u128) -> Option<&User> {
+    pub fn get_user(&self, id: UserId) -> Option<&User> {
         self.users.get(&id)
     }
 
-    pub fn get_user_mut(&mut self, id: u128) -> Option<&mut User> {
+    pub fn get_user_mut(&mut self, id: UserId) -> Option<&mut User> {
         self.users.get_mut(&id)
     }
 
-    pub fn remove_user(&mut self, id: u128) -> Option<User> {
+    pub fn remove_user(&mut self, id: UserId) -> Option<User> {
         self.usernames.remove(&self.users[&id].username);
         self.users.remove(&id)
     }
 
-    pub fn add_token(&mut self, user_id: u128) -> u128 {
+    pub fn add_token(&mut self, user_id: UserId) -> u128 {
         let token = rand::random();
         self.tokens.insert(token, user_id);
         self.token_expiry
@@ -65,7 +68,7 @@ impl UserDatabase {
         token
     }
 
-    pub fn get_user_id_by_token(&mut self, token: u128) -> Option<u128> {
+    pub fn get_user_id_by_token(&mut self, token: u128) -> Option<UserId> {
         let expired = if let Some(expiry) = self.token_expiry.get(&token) {
             Instant::now() > *expiry
         } else {
@@ -81,15 +84,15 @@ impl UserDatabase {
         self.tokens.get(&token).copied()
     }
 
-    pub fn remove_token(&mut self, token: u128) -> Option<u128> {
-        self.tokens.remove(&token)
+    pub fn remove_token(&mut self, token: u128) {
+        self.tokens.remove(&token);
     }
 
-    pub fn get_user_id_by_username(&self, username: &str) -> Option<u128> {
+    pub fn get_user_id_by_username(&self, username: &str) -> Option<UserId> {
         self.usernames.get(username).copied()
     }
 
-    pub fn try_login(&self, username: &str, password: &str) -> Option<u128> {
+    pub fn try_login(&self, username: &str, password: &str) -> Option<UserId> {
         if let Some(id) = self.get_user_id_by_username(username) {
             if let Some(user) = self.get_user(id) {
                 if verify(password, &user.password).unwrap() {
