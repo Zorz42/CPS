@@ -94,9 +94,9 @@ async fn handle_request(
     request: Request<hyper::body::Incoming>,
     global: &GlobalState,
 ) -> Result<Response<Full<Bytes>>> {
-    //println!("Got request {:?}", request);
     let token = get_login_token(&request);
-    println!("Got token: {:?}", token);
+    //println!("Got request {:?}", request);
+    //println!("Got token: {:?}", token);
 
     if request.method() == hyper::Method::POST {
         let body = request.into_body().collect().await?.to_bytes();

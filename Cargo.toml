@@ -13,3 +13,4 @@ hyper-util = { version = "0.1", features = ["full"] }
 anyhow = "1.0"
 rand = "0.8"
 askama = "0.12"
+bcrypt = "0.15"

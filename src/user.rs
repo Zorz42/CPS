@@ -1,3 +1,4 @@
+use bcrypt::{hash, verify, BcryptResult, DEFAULT_COST};
 use std::collections::HashMap;
 
 pub struct User {
@@ -9,7 +10,7 @@ impl User {
     fn new(username: &str, password: &str) -> User {
         User {
             username: username.to_string(),
-            password: password.to_string(),
+            password: hash(password, DEFAULT_COST).unwrap(),
         }
     }
 }
@@ -70,7 +71,7 @@ impl UserDatabase {
     pub fn try_login(&self, username: &str, password: &str) -> Option<u128> {
         if let Some(id) = self.get_user_id_by_username(username) {
             if let Some(user) = self.get_user(id) {
-                if user.password == password {
+                if verify(password, &user.password).unwrap() {
                     return Some(id);
                 }
             }
