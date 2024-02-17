@@ -3,8 +3,9 @@ use crate::problem::ProblemId;
 use crate::user::UserId;
 use std::collections::HashMap;
 
-type ContestId = GenericId;
+pub type ContestId = GenericId;
 
+#[derive(Clone)]
 pub struct Contest {
     pub name: String,
     pub problems: Vec<ProblemId>,

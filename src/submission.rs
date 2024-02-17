@@ -16,11 +16,11 @@ pub enum EvaluationStatus {
 }
 
 pub struct Submission {
-    user_id: u128,
-    problem_id: u32,
-    code: String,
-    status: EvaluationStatus,
-    subtasks: Vec<EvaluationSubtask>,
+    pub user_id: u128,
+    pub problem_id: u32,
+    pub code: String,
+    pub status: EvaluationStatus,
+    pub subtasks: Vec<EvaluationSubtask>,
 }
 
 pub struct SubmissionDatabase {

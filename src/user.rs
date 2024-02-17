@@ -12,8 +12,8 @@ pub type UserToken = GenericId;
 
 pub struct User {
     pub username: String,
-    password: String,
-    is_admin: bool,
+    pub password: String,
+    pub is_admin: bool,
 }
 
 impl User {

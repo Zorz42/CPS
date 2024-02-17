@@ -2,8 +2,8 @@ use crate::id::GenericId;
 use crate::submission::EvaluationStatus;
 use std::path::PathBuf;
 
-type TestId = GenericId;
-type SubtaskId = GenericId;
+pub type TestId = GenericId;
+pub type SubtaskId = GenericId;
 
 pub struct EvaluationSubtask {
     pub status: EvaluationStatus,

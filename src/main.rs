@@ -8,8 +8,8 @@ mod user;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::contest::ContestDatabase;
-use crate::problem::ProblemDatabase;
+use crate::contest::{ContestDatabase, ContestId};
+use crate::problem::{ProblemDatabase, ProblemId};
 use crate::submission::SubmissionDatabase;
 use crate::user::{get_login_token, parse_login_string, UserDatabase};
 use anyhow::Result;
@@ -76,6 +76,12 @@ struct RedirectSite {
 struct NotFoundSite;
 
 #[derive(Template)]
+#[template(path = "login.html")]
+struct LoginSite {
+    error_message: String,
+}
+
+#[derive(Template)]
 #[template(path = "main.html")]
 struct MainSite {
     logged_in: bool,
@@ -84,9 +90,18 @@ struct MainSite {
 }
 
 #[derive(Template)]
-#[template(path = "login.html")]
-struct LoginSite {
-    error_message: String,
+#[template(path = "contest.html")]
+struct ContestSite {
+    contest_id: u128,
+    problems: Vec<(u128, String)>,
+}
+
+#[derive(Template)]
+#[template(path = "problem.html")]
+struct ProblemSite {
+    contest_id: u128,
+    problem_id: u128,
+    problem_name: String,
 }
 
 async fn handle_request(
@@ -182,6 +197,43 @@ async fn handle_request(
         })?);
     }
 
+    if parts.len() == 2 && parts[0] == "contest" {
+        if let Some(contest_id) = parts[1].parse::<u128>().ok() {
+            let contest_id = ContestId::from_int(contest_id);
+            let contest = global.contests().get_contest(contest_id).cloned();
+            if let Some(contest) = contest {
+                let mut problems = Vec::new();
+                for problem_id in contest.problems {
+                    let problem = global.problems().get_problem(problem_id).unwrap().clone();
+                    problems.push((problem_id.to_int(), problem.name.clone()));
+                }
+
+                return Ok(create_html_response(ContestSite {
+                    contest_id: contest_id.to_int(),
+                    problems,
+                })?);
+            }
+        }
+    }
+
+    if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
+        if let (Some(contest_id), Some(problem_id)) =
+            (parts[1].parse::<u128>().ok(), parts[3].parse::<u128>().ok())
+        {
+            let contest_id = ContestId::from_int(contest_id);
+            let problem_id = ProblemId::from_int(problem_id);
+            let contest = global.contests().get_contest(contest_id).cloned();
+            let problem = global.problems().get_problem(problem_id).cloned();
+            if let (Some(_contest), Some(problem)) = (contest, problem) {
+                return Ok(create_html_response(ProblemSite {
+                    contest_id: contest_id.to_int(),
+                    problem_id: problem_id.to_int(),
+                    problem_name: problem.name.clone(),
+                })?);
+            }
+        }
+    }
+
     Ok(create_html_response(NotFoundSite)?)
 }
 
@@ -190,15 +242,29 @@ async fn handle_request(
 fn init_temporary_data() -> GlobalState {
     let global = GlobalState::new();
     let admin_user = global.users().add_user("admin", "admin", true);
-    let contest_1 = global.contests().add_contest("Contest 1");
-    let _contest_2 = global.contests().add_contest("Contest 2");
-    let contest_10 = global.contests().add_contest("Contest 10");
+    let contest1 = global.contests().add_contest("Contest 1");
+    let _contest2 = global.contests().add_contest("Contest 2");
+    let contest10 = global.contests().add_contest("Contest 10");
     global
         .contests()
-        .make_contest_available(admin_user, contest_1);
+        .make_contest_available(admin_user, contest1);
     global
         .contests()
-        .make_contest_available(admin_user, contest_10);
+        .make_contest_available(admin_user, contest10);
+
+    let problem1 = global.problems().add_problem("Problem 1", "Description 1");
+    let problem2 = global.problems().add_problem("Problem 2", "Description 2");
+    let problem3 = global
+        .problems()
+        .add_problem("A Hard Problem", "A Hard Description");
+
+    global.contests().add_problem_to_contest(contest1, problem1);
+    global
+        .contests()
+        .add_problem_to_contest(contest10, problem2);
+    global
+        .contests()
+        .add_problem_to_contest(contest10, problem3);
 
     global
 }
