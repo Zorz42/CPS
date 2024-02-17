@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::Instant;
 
-const TOKEN_EXPIRY: Duration = Duration::from_secs(10);
+const TOKEN_EXPIRY: Duration = Duration::from_secs(60 * 60);
 
 pub type UserId = GenericId;
 pub type UserToken = GenericId;

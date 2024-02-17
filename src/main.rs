@@ -72,6 +72,10 @@ struct RedirectSite {
 }
 
 #[derive(Template)]
+#[template(path = "not_found.html")]
+struct NotFoundSite;
+
+#[derive(Template)]
 #[template(path = "main.html")]
 struct MainSite {
     logged_in: bool,
@@ -85,10 +89,6 @@ struct LoginSite {
     error_message: String,
 }
 
-#[derive(Template)]
-#[template(path = "not_found.html")]
-struct NotFoundSite;
-
 async fn handle_request(
     request: Request<hyper::body::Incoming>,
     global: &GlobalState,
@@ -97,69 +97,92 @@ async fn handle_request(
     let user = token.and_then(|token| global.users().get_user_id_by_token(token));
 
     if request.method() == hyper::Method::POST {
-        let body = request.into_body().collect().await?.to_bytes();
-        let body = String::from_utf8_lossy(&body).to_string();
-        let (username, password) = parse_login_string(&body);
+        match request.uri().path() {
+            "/login" => {
+                let body = request.into_body().collect().await?.to_bytes();
+                let body = String::from_utf8_lossy(&body).to_string();
+                let (username, password) = parse_login_string(&body);
 
-        let mut users = global.users();
-        return if let Some(id) = users.try_login(&username, &password) {
-            let token = users.add_token(id);
+                let mut users = global.users();
+                return if let Some(id) = users.try_login(&username, &password) {
+                    let token = users.add_token(id);
 
-            let mut response = create_html_response(RedirectSite {
-                url: "/".to_owned(),
-            })?;
+                    let mut response = create_html_response(RedirectSite {
+                        url: "/".to_owned(),
+                    })?;
 
-            response.headers_mut().append(
-                SET_COOKIE,
-                format!("login_token={}", token.to_int()).parse()?,
-            );
+                    response.headers_mut().append(
+                        SET_COOKIE,
+                        format!("login_token={}", token.to_int()).parse()?,
+                    );
 
-            Ok(response)
-        } else {
-            let error_message = {
-                if users.get_user_id_by_username(&username).is_none() {
-                    "User does not exist".to_owned()
+                    Ok(response)
                 } else {
-                    "Invalid password".to_owned()
+                    let error_message = {
+                        if users.get_user_id_by_username(&username).is_none() {
+                            "User does not exist".to_owned()
+                        } else {
+                            "Invalid password".to_owned()
+                        }
+                    };
+
+                    let response = create_html_response(LoginSite { error_message })?;
+
+                    Ok(response)
+                };
+            }
+            "/logout" => {
+                let response = create_html_response(RedirectSite {
+                    url: "/".to_owned(),
+                })?;
+
+                if let Some(token) = token {
+                    global.users().remove_token(token);
                 }
-            };
 
-            let response = create_html_response(LoginSite { error_message })?;
-
-            Ok(response)
-        };
+                return Ok(response);
+            }
+            _ => {}
+        }
     }
 
-    return match request.uri().path() {
-        "/" => {
-            let mut contests = Vec::new();
-            if let Some(user) = user {
-                let contests_obj = global.contests();
-                contests = contests_obj
-                    .get_available_contests(user)
-                    .iter()
-                    .map(|id| {
-                        (
-                            id.to_int(),
-                            contests_obj.get_contest(*id).unwrap().name.clone(),
-                        )
-                    })
-                    .collect();
-            }
+    let mut parts = request.uri().path().split('/').collect::<Vec<_>>();
+    parts.retain(|x| !x.is_empty());
 
-            Ok(create_html_response(MainSite {
-                logged_in: user.is_some(),
-                username: user
-                    .map(|id| global.users().get_user(id).unwrap().username.clone())
-                    .unwrap_or_default(),
-                contests,
-            })?)
+    // if the path is empty, we are at the root of the website
+    if parts.is_empty() {
+        let mut contests = Vec::new();
+        if let Some(user) = user {
+            let contests_obj = global.contests();
+            contests = contests_obj
+                .get_available_contests(user)
+                .iter()
+                .map(|id| {
+                    (
+                        id.to_int(),
+                        contests_obj.get_contest(*id).unwrap().name.clone(),
+                    )
+                })
+                .collect();
         }
-        "/login" => Ok(create_html_response(LoginSite {
+
+        return Ok(create_html_response(MainSite {
+            logged_in: user.is_some(),
+            username: user
+                .map(|id| global.users().get_user(id).unwrap().username.clone())
+                .unwrap_or_default(),
+            contests,
+        })?);
+    }
+
+    // if the path is ["login"], we are at the login page
+    if parts == ["login"] {
+        return Ok(create_html_response(LoginSite {
             error_message: "".to_owned(),
-        })?),
-        _ => Ok(create_html_response(NotFoundSite)?),
-    };
+        })?);
+    }
+
+    Ok(create_html_response(NotFoundSite)?)
 }
 
 // this function is used to initialize the temporary data

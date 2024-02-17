@@ -11,7 +11,9 @@
     {%- if logged_in -%}
     
     <p>Welcome, {{ username }}!</p>
-    <a href="/logout">Logout</a>
+    <form action="logout" method="post">
+        <input type="submit" value="Logout">
+    </form>
     
     {%- else -%}
     
