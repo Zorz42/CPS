@@ -3,7 +3,7 @@ mod user;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::user::UserDatabase;
+use crate::user::{get_login_token, parse_login_string, UserDatabase};
 use anyhow::Result;
 use askama::Template;
 use http_body_util::{BodyExt, Full};
@@ -32,47 +32,6 @@ impl GlobalState {
     }
 }
 
-fn parse_login_string(body: &str) -> (String, String) {
-    let mut username = String::new();
-    let mut password = String::new();
-
-    for part in body.split('&') {
-        let parts: Vec<&str> = part.split('=').collect();
-        if parts.len() != 2 {
-            continue;
-        }
-
-        match parts[0] {
-            "username" => username = parts[1].to_string(),
-            "password" => password = parts[1].to_string(),
-            _ => {}
-        }
-    }
-
-    (username, password)
-}
-
-fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<u128> {
-    request
-        .headers()
-        .get("cookie")
-        .and_then(|cookie| cookie.to_str().ok())
-        .and_then(|cookie| {
-            for part in cookie.split(';') {
-                let parts: Vec<&str> = part.trim().split('=').collect();
-                if parts.len() != 2 {
-                    continue;
-                }
-
-                if parts[0] == "login_token" {
-                    return Some(parts[1].parse().unwrap());
-                }
-            }
-
-            None
-        })
-}
-
 fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
     let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
     Ok(response)
@@ -97,6 +56,10 @@ struct LoginSite {
     error_message: String,
 }
 
+#[derive(Template)]
+#[template(path = "not_found.html")]
+struct NotFoundSite;
+
 async fn handle_request(
     request: Request<hyper::body::Incoming>,
     global: &GlobalState,
@@ -111,8 +74,7 @@ async fn handle_request(
 
         let mut users = global.users();
         return if let Some(id) = users.try_login(&username, &password) {
-            let user = users.get_user_id_by_username(&username).unwrap();
-            let token = users.add_token(user);
+            let token = users.add_token(id);
 
             let mut response = create_html_response(RedirectSite {
                 url: "/".to_owned(),
@@ -148,9 +110,7 @@ async fn handle_request(
         "/login" => Ok(create_html_response(LoginSite {
             error_message: "".to_owned(),
         })?),
-        _ => Ok(Response::new(Full::new(Bytes::from(include_str!(
-            "../templates/not_found.html"
-        ))))),
+        _ => Ok(create_html_response(NotFoundSite)?),
     };
 }
 

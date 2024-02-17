@@ -1,4 +1,5 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
+use hyper::Request;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -98,4 +99,45 @@ impl UserDatabase {
         }
         None
     }
+}
+
+pub fn parse_login_string(body: &str) -> (String, String) {
+    let mut username = String::new();
+    let mut password = String::new();
+
+    for part in body.split('&') {
+        let parts: Vec<&str> = part.split('=').collect();
+        if parts.len() != 2 {
+            continue;
+        }
+
+        match parts[0] {
+            "username" => username = parts[1].to_string(),
+            "password" => password = parts[1].to_string(),
+            _ => {}
+        }
+    }
+
+    (username, password)
+}
+
+pub fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<u128> {
+    request
+        .headers()
+        .get("cookie")
+        .and_then(|cookie| cookie.to_str().ok())
+        .and_then(|cookie| {
+            for part in cookie.split(';') {
+                let parts: Vec<&str> = part.trim().split('=').collect();
+                if parts.len() != 2 {
+                    continue;
+                }
+
+                if parts[0] == "login_token" {
+                    return Some(parts[1].parse().unwrap());
+                }
+            }
+
+            None
+        })
 }
