@@ -1,8 +1,12 @@
-use bcrypt::{hash, verify, BcryptResult, DEFAULT_COST};
+use bcrypt::{hash, verify, DEFAULT_COST};
 use std::collections::HashMap;
+use std::time::Duration;
+use tokio::time::Instant;
+
+const TOKEN_EXPIRY: Duration = Duration::from_secs(10);
 
 pub struct User {
-    username: String,
+    pub username: String,
     password: String,
 }
 
@@ -19,6 +23,7 @@ pub struct UserDatabase {
     users: HashMap<u128, User>,
     usernames: HashMap<String, u128>,
     tokens: HashMap<u128, u128>,
+    token_expiry: HashMap<u128, Instant>,
 }
 
 impl UserDatabase {
@@ -27,6 +32,7 @@ impl UserDatabase {
             users: HashMap::new(),
             usernames: HashMap::new(),
             tokens: HashMap::new(),
+            token_expiry: HashMap::new(),
         }
     }
 
@@ -53,10 +59,24 @@ impl UserDatabase {
     pub fn add_token(&mut self, user_id: u128) -> u128 {
         let token = rand::random();
         self.tokens.insert(token, user_id);
+        self.token_expiry
+            .insert(token, Instant::now() + TOKEN_EXPIRY);
         token
     }
 
-    pub fn get_user_id_by_token(&self, token: u128) -> Option<u128> {
+    pub fn get_user_id_by_token(&mut self, token: u128) -> Option<u128> {
+        let expired = if let Some(expiry) = self.token_expiry.get(&token) {
+            Instant::now() > *expiry
+        } else {
+            false
+        };
+
+        if expired {
+            self.tokens.remove(&token);
+            self.token_expiry.remove(&token);
+            return None;
+        }
+
         self.tokens.get(&token).copied()
     }
 

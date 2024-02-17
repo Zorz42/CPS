@@ -85,6 +85,13 @@ struct RedirectSite {
 }
 
 #[derive(Template)]
+#[template(path = "main.html")]
+struct MainSite {
+    logged_in: bool,
+    username: String,
+}
+
+#[derive(Template)]
 #[template(path = "login.html")]
 struct LoginSite {
     error_message: String,
@@ -95,16 +102,18 @@ async fn handle_request(
     global: &GlobalState,
 ) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
-    //println!("Got request {:?}", request);
-    //println!("Got token: {:?}", token);
+    let user = token.and_then(|token| global.users().get_user_id_by_token(token));
 
     if request.method() == hyper::Method::POST {
         let body = request.into_body().collect().await?.to_bytes();
         let body = String::from_utf8_lossy(&body).to_string();
         let (username, password) = parse_login_string(&body);
 
-        let users = global.users();
-        return if let Some(token) = users.try_login(&username, &password) {
+        let mut users = global.users();
+        return if let Some(id) = users.try_login(&username, &password) {
+            let user = users.get_user_id_by_username(&username).unwrap();
+            let token = users.add_token(user);
+
             let mut response = create_html_response(RedirectSite {
                 url: "/".to_owned(),
             })?;
@@ -130,9 +139,12 @@ async fn handle_request(
     }
 
     return match request.uri().path() {
-        "/" => Ok(Response::new(Full::new(Bytes::from(include_str!(
-            "../templates/index.html"
-        ))))),
+        "/" => Ok(create_html_response(MainSite {
+            logged_in: user.is_some(),
+            username: user
+                .map(|id| global.users().get_user(id).unwrap().username.clone())
+                .unwrap_or_default(),
+        })?),
         "/login" => Ok(create_html_response(LoginSite {
             error_message: "".to_owned(),
         })?),

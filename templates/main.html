@@ -7,7 +7,18 @@
 <body>
     <h1>Home</h1>
     <p>Welcome to our home page!</p>
+    
+    {%- if logged_in -%}
+    
+    <p>Welcome, {{ username }}!</p>
+    <a href="/logout">Logout</a>
+    
+    {%- else -%}
+    
     <a href="/login">Login</a>
+    
+    {%- endif -%}
+
 </body>
 
 </html>
