@@ -8,6 +8,14 @@
 <p>
     For now no description...
 </p>
+
+<h2>Submit a solution</h2>
+<form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
+    <label for="file">File</label>
+    <input id="file" name="file" type="file" />
+    <button>Submit</button>
+</form>
+
 </body>
 
 </html>

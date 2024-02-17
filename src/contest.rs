@@ -1,9 +1,22 @@
 use crate::id::GenericId;
 use crate::problem::ProblemId;
 use crate::user::UserId;
+use crate::{create_html_response, GlobalState};
+use anyhow::Result;
+use askama::Template;
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper::Response;
 use std::collections::HashMap;
 
 pub type ContestId = GenericId;
+
+#[derive(Template)]
+#[template(path = "contest.html")]
+pub struct ContestSite {
+    contest_id: u128,
+    problems: Vec<(u128, String)>,
+}
 
 #[derive(Clone)]
 pub struct Contest {
@@ -64,4 +77,27 @@ impl ContestDatabase {
     pub fn get_contest(&self, id: ContestId) -> Option<&Contest> {
         self.contests.get(&id)
     }
+}
+
+pub fn create_contest_page(
+    global: &GlobalState,
+    contest_id: &str,
+) -> Result<Option<Response<Full<Bytes>>>> {
+    if let Some(contest_id) = contest_id.parse::<u128>().ok() {
+        let contest_id = ContestId::from_int(contest_id);
+        let contest = global.contests().get_contest(contest_id).cloned();
+        if let Some(contest) = contest {
+            let mut problems = Vec::new();
+            for problem_id in contest.problems {
+                let problem = global.problems().get_problem(problem_id).unwrap().clone();
+                problems.push((problem_id.to_int(), problem.name.clone()));
+            }
+
+            return Ok(Some(create_html_response(ContestSite {
+                contest_id: contest_id.to_int(),
+                problems,
+            })?));
+        }
+    }
+    Ok(None)
 }

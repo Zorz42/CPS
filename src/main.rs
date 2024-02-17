@@ -8,9 +8,9 @@ mod user;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::contest::{ContestDatabase, ContestId};
-use crate::problem::{ProblemDatabase, ProblemId};
-use crate::submission::SubmissionDatabase;
+use crate::contest::{create_contest_page, ContestDatabase};
+use crate::problem::{create_problem_page, ProblemDatabase};
+use crate::submission::{handle_submission_form, SubmissionDatabase};
 use crate::user::{
     create_login_page, get_login_token, handle_login_form, handle_logout_form, UserDatabase, UserId,
 };
@@ -84,21 +84,6 @@ pub struct MainSite {
     contests: Vec<(u128, String)>,
 }
 
-#[derive(Template)]
-#[template(path = "contest.html")]
-pub struct ContestSite {
-    contest_id: u128,
-    problems: Vec<(u128, String)>,
-}
-
-#[derive(Template)]
-#[template(path = "problem.html")]
-pub struct ProblemSite {
-    contest_id: u128,
-    problem_id: u128,
-    problem_name: String,
-}
-
 pub fn create_main_page(
     global: &GlobalState,
     user: Option<UserId>,
@@ -134,64 +119,52 @@ async fn handle_request(
     let token = get_login_token(&request);
     let user = token.and_then(|token| global.users().get_user_id_by_token(token));
 
-    if request.method() == hyper::Method::POST {
-        match request.uri().path() {
-            "/login" => {
-                return handle_login_form(global, request).await;
-            }
-            "/logout" => {
-                return handle_logout_form(global, token).await;
-            }
-            _ => {}
-        }
-    }
-
-    let mut parts = request.uri().path().split('/').collect::<Vec<_>>();
+    let mut parts = request
+        .uri()
+        .path()
+        .split('/')
+        .map(|x| x.to_owned())
+        .collect::<Vec<String>>();
     parts.retain(|x| !x.is_empty());
 
-    // if the path is empty, we are at the root of the website
-    if parts.is_empty() {
-        return create_main_page(global, user);
-    }
+    if request.method() == hyper::Method::POST {
+        if parts == ["login"] {
+            return handle_login_form(global, request).await;
+        }
 
-    // if the path is ["login"], we are at the login page
-    if parts == ["login"] {
-        return create_login_page();
-    }
+        if parts == ["logout"] {
+            return handle_logout_form(global, token).await;
+        }
 
-    if parts.len() == 2 && parts[0] == "contest" {
-        if let Some(contest_id) = parts[1].parse::<u128>().ok() {
-            let contest_id = ContestId::from_int(contest_id);
-            let contest = global.contests().get_contest(contest_id).cloned();
-            if let Some(contest) = contest {
-                let mut problems = Vec::new();
-                for problem_id in contest.problems {
-                    let problem = global.problems().get_problem(problem_id).unwrap().clone();
-                    problems.push((problem_id.to_int(), problem.name.clone()));
-                }
-
-                return Ok(create_html_response(ContestSite {
-                    contest_id: contest_id.to_int(),
-                    problems,
-                })?);
+        if parts.len() == 5
+            && parts[0] == "contest"
+            && parts[2] == "problem"
+            && parts[4] == "submit_file"
+        {
+            if let Some(result) = handle_submission_form(global, user, &parts[3], request).await? {
+                return Ok(result);
             }
         }
-    }
+    } else if request.method() == hyper::Method::GET {
+        // if the path is empty, we are at the root of the website
+        if parts.is_empty() {
+            return create_main_page(global, user);
+        }
 
-    if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-        if let (Some(contest_id), Some(problem_id)) =
-            (parts[1].parse::<u128>().ok(), parts[3].parse::<u128>().ok())
-        {
-            let contest_id = ContestId::from_int(contest_id);
-            let problem_id = ProblemId::from_int(problem_id);
-            let contest = global.contests().get_contest(contest_id).cloned();
-            let problem = global.problems().get_problem(problem_id).cloned();
-            if let (Some(_contest), Some(problem)) = (contest, problem) {
-                return Ok(create_html_response(ProblemSite {
-                    contest_id: contest_id.to_int(),
-                    problem_id: problem_id.to_int(),
-                    problem_name: problem.name.clone(),
-                })?);
+        // if the path is ["login"], we are at the login page
+        if parts == ["login"] {
+            return create_login_page();
+        }
+
+        if parts.len() == 2 && parts[0] == "contest" {
+            if let Some(result) = create_contest_page(global, &parts[1])? {
+                return Ok(result);
+            }
+        }
+
+        if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
+            if let Some(result) = create_problem_page(global, &parts[1], &parts[3])? {
+                return Ok(result);
             }
         }
     }
