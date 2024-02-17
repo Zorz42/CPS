@@ -11,4 +11,5 @@ tokio = { version = "1.36", features = ["full"] }
 http-body-util = "0.1"
 hyper-util = { version = "0.1", features = ["full"] }
 anyhow = "1.0"
-rand = "0.8.5"
+rand = "0.8"
+askama = "0.12"

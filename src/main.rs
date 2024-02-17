@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use crate::user::UserDatabase;
 use anyhow::Result;
+use askama::Template;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
 use hyper::header::SET_COOKIE;
@@ -72,6 +73,23 @@ fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<u128> {
         })
 }
 
+fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
+    let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
+    Ok(response)
+}
+
+#[derive(Template)]
+#[template(path = "redirect.html")]
+struct RedirectSite {
+    url: String,
+}
+
+#[derive(Template)]
+#[template(path = "login.html")]
+struct LoginSite {
+    error_message: String,
+}
+
 async fn handle_request(
     request: Request<hyper::body::Incoming>,
     global: &GlobalState,
@@ -85,19 +103,27 @@ async fn handle_request(
         let body = String::from_utf8_lossy(&body).to_string();
         let (username, password) = parse_login_string(&body);
 
-        return if let Some(token) = global.users().try_login(&username, &password) {
-            let mut response = Response::new(Full::new(Bytes::from(include_str!(
-                "../html/redirect.html"
-            ))));
+        let users = global.users();
+        return if let Some(token) = users.try_login(&username, &password) {
+            let mut response = create_html_response(RedirectSite {
+                url: "/".to_owned(),
+            })?;
+
             response
                 .headers_mut()
                 .append(SET_COOKIE, format!("login_token={}", token).parse()?);
 
             Ok(response)
         } else {
-            let mut response = Response::new(Full::new(Bytes::from(include_str!(
-                "../html/redirect.html"
-            ))));
+            let error_message = {
+                if users.get_user_id_by_username(&username).is_none() {
+                    "User does not exist".to_owned()
+                } else {
+                    "Invalid password".to_owned()
+                }
+            };
+
+            let response = create_html_response(LoginSite { error_message })?;
 
             Ok(response)
         };
@@ -105,13 +131,13 @@ async fn handle_request(
 
     return match request.uri().path() {
         "/" => Ok(Response::new(Full::new(Bytes::from(include_str!(
-            "../html/index.html"
+            "../templates/index.html"
         ))))),
-        "/login" => Ok(Response::new(Full::new(Bytes::from(include_str!(
-            "../html/login.html"
-        ))))),
+        "/login" => Ok(create_html_response(LoginSite {
+            error_message: "".to_owned(),
+        })?),
         _ => Ok(Response::new(Full::new(Bytes::from(include_str!(
-            "../html/not_found.html"
+            "../templates/not_found.html"
         ))))),
     };
 }
