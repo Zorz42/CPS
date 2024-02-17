@@ -6,22 +6,22 @@ use std::collections::HashMap;
 type ContestId = GenericId;
 
 pub struct Contest {
-    name: String,
-    problems: Vec<ProblemId>,
+    pub name: String,
+    pub problems: Vec<ProblemId>,
 }
 
 impl Contest {
-    pub fn new(name: &str, problems: Vec<ProblemId>) -> Contest {
+    pub fn new(name: &str) -> Contest {
         Contest {
             name: name.to_owned(),
-            problems,
+            problems: Vec::new(),
         }
     }
 }
 
 pub struct ContestDatabase {
     contests: HashMap<ContestId, Contest>,
-    available_contests: HashMap<UserId, Vec<ContestId>>, // available contests for each user
+    available_contests: HashMap<UserId, Vec<ContestId>>,
 }
 
 impl ContestDatabase {
@@ -32,9 +32,35 @@ impl ContestDatabase {
         }
     }
 
-    pub fn add_contest(&mut self, name: &str, problems: Vec<ProblemId>) -> ContestId {
+    pub fn add_contest(&mut self, name: &str) -> ContestId {
         let id = ContestId::new();
-        self.contests.insert(id, Contest::new(name, problems));
+        self.contests.insert(id, Contest::new(name));
         id
+    }
+
+    pub fn add_problem_to_contest(&mut self, contest_id: ContestId, problem_id: ProblemId) {
+        self.contests
+            .get_mut(&contest_id)
+            .unwrap()
+            .problems
+            .push(problem_id);
+    }
+
+    pub fn make_contest_available(&mut self, user_id: UserId, contest_id: ContestId) {
+        self.available_contests
+            .entry(user_id)
+            .or_insert_with(Vec::new)
+            .push(contest_id);
+    }
+
+    pub fn get_available_contests(&self, user_id: UserId) -> Vec<ContestId> {
+        self.available_contests
+            .get(&user_id)
+            .cloned()
+            .unwrap_or(Vec::new())
+    }
+
+    pub fn get_contest(&self, id: ContestId) -> Option<&Contest> {
+        self.contests.get(&id)
     }
 }

@@ -76,6 +76,7 @@ struct RedirectSite {
 struct MainSite {
     logged_in: bool,
     username: String,
+    contests: Vec<(u128, String)>,
 }
 
 #[derive(Template)]
@@ -130,12 +131,30 @@ async fn handle_request(
     }
 
     return match request.uri().path() {
-        "/" => Ok(create_html_response(MainSite {
-            logged_in: user.is_some(),
-            username: user
-                .map(|id| global.users().get_user(id).unwrap().username.clone())
-                .unwrap_or_default(),
-        })?),
+        "/" => {
+            let mut contests = Vec::new();
+            if let Some(user) = user {
+                let contests_obj = global.contests();
+                contests = contests_obj
+                    .get_available_contests(user)
+                    .iter()
+                    .map(|id| {
+                        (
+                            id.to_int(),
+                            contests_obj.get_contest(*id).unwrap().name.clone(),
+                        )
+                    })
+                    .collect();
+            }
+
+            Ok(create_html_response(MainSite {
+                logged_in: user.is_some(),
+                username: user
+                    .map(|id| global.users().get_user(id).unwrap().username.clone())
+                    .unwrap_or_default(),
+                contests,
+            })?)
+        }
         "/login" => Ok(create_html_response(LoginSite {
             error_message: "".to_owned(),
         })?),
@@ -147,7 +166,17 @@ async fn handle_request(
 // it will be later replaced by a database
 fn init_temporary_data() -> GlobalState {
     let global = GlobalState::new();
-    global.users().add_user("admin", "admin", true);
+    let admin_user = global.users().add_user("admin", "admin", true);
+    let contest_1 = global.contests().add_contest("Contest 1");
+    let _contest_2 = global.contests().add_contest("Contest 2");
+    let contest_10 = global.contests().add_contest("Contest 10");
+    global
+        .contests()
+        .make_contest_available(admin_user, contest_1);
+    global
+        .contests()
+        .make_contest_available(admin_user, contest_10);
+
     global
 }
 

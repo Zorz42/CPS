@@ -18,6 +18,11 @@
     <a href="/login">Login</a>
     
     {%- endif -%}
+    
+    <h2>Contests</h2>
+    {%- for (id, name) in contests -%}
+        <a href="/contest/{{ id }}">{{ name }}</a><br>
+    {%- endfor -%}
 
 </body>
 
