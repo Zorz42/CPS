@@ -8,17 +8,20 @@ use tokio::time::Instant;
 const TOKEN_EXPIRY: Duration = Duration::from_secs(10);
 
 pub type UserId = GenericId;
+pub type UserToken = GenericId;
 
 pub struct User {
     pub username: String,
     password: String,
+    is_admin: bool,
 }
 
 impl User {
-    fn new(username: &str, password: &str) -> User {
+    fn new(username: &str, password: &str, is_admin: bool) -> User {
         User {
-            username: username.to_string(),
+            username: username.to_owned(),
             password: hash(password, DEFAULT_COST).unwrap(),
+            is_admin,
         }
     }
 }
@@ -26,8 +29,8 @@ impl User {
 pub struct UserDatabase {
     users: HashMap<UserId, User>,
     usernames: HashMap<String, UserId>,
-    tokens: HashMap<u128, UserId>,
-    token_expiry: HashMap<u128, Instant>,
+    tokens: HashMap<UserToken, UserId>,
+    token_expiry: HashMap<UserToken, Instant>,
 }
 
 impl UserDatabase {
@@ -40,9 +43,10 @@ impl UserDatabase {
         }
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str) -> UserId {
+    pub fn add_user(&mut self, username: &str, password: &str, is_admin: bool) -> UserId {
         let id = UserId::new();
-        self.users.insert(id, User::new(username, password));
+        self.users
+            .insert(id, User::new(username, password, is_admin));
         self.usernames.insert(username.to_string(), id);
         id
     }
@@ -60,15 +64,15 @@ impl UserDatabase {
         self.users.remove(&id)
     }
 
-    pub fn add_token(&mut self, user_id: UserId) -> u128 {
-        let token = rand::random();
+    pub fn add_token(&mut self, user_id: UserId) -> UserToken {
+        let token = UserToken::new();
         self.tokens.insert(token, user_id);
         self.token_expiry
             .insert(token, Instant::now() + TOKEN_EXPIRY);
         token
     }
 
-    pub fn get_user_id_by_token(&mut self, token: u128) -> Option<UserId> {
+    pub fn get_user_id_by_token(&mut self, token: UserToken) -> Option<UserId> {
         let expired = if let Some(expiry) = self.token_expiry.get(&token) {
             Instant::now() > *expiry
         } else {
@@ -84,7 +88,7 @@ impl UserDatabase {
         self.tokens.get(&token).copied()
     }
 
-    pub fn remove_token(&mut self, token: u128) {
+    pub fn remove_token(&mut self, token: UserToken) {
         self.tokens.remove(&token);
     }
 
@@ -95,12 +99,16 @@ impl UserDatabase {
     pub fn try_login(&self, username: &str, password: &str) -> Option<UserId> {
         if let Some(id) = self.get_user_id_by_username(username) {
             if let Some(user) = self.get_user(id) {
-                if verify(password, &user.password).unwrap() {
+                if verify(password, &user.password).unwrap_or(false) {
                     return Some(id);
                 }
             }
         }
         None
+    }
+
+    pub fn is_admin(&self, id: UserId) -> bool {
+        self.get_user(id).map(|user| user.is_admin).unwrap_or(false)
     }
 }
 
@@ -124,7 +132,7 @@ pub fn parse_login_string(body: &str) -> (String, String) {
     (username, password)
 }
 
-pub fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<u128> {
+pub fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<UserToken> {
     request
         .headers()
         .get("cookie")
@@ -137,7 +145,7 @@ pub fn get_login_token(request: &Request<hyper::body::Incoming>) -> Option<u128>
                 }
 
                 if parts[0] == "login_token" {
-                    return Some(parts[1].parse().unwrap());
+                    return Some(UserToken::from_int(parts[1].parse().unwrap_or(0)));
                 }
             }
 

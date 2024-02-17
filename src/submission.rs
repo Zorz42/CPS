@@ -1,4 +1,7 @@
+use crate::id::GenericId;
 use crate::test::EvaluationSubtask;
+
+pub type SubmissionId = GenericId;
 
 pub enum EvaluationStatus {
     Pending,

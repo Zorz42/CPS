@@ -108,9 +108,10 @@ async fn handle_request(
                 url: "/".to_owned(),
             })?;
 
-            response
-                .headers_mut()
-                .append(SET_COOKIE, format!("login_token={}", token).parse()?);
+            response.headers_mut().append(
+                SET_COOKIE,
+                format!("login_token={}", token.to_int()).parse()?,
+            );
 
             Ok(response)
         } else {
@@ -146,7 +147,7 @@ async fn handle_request(
 // it will be later replaced by a database
 fn init_temporary_data() -> GlobalState {
     let global = GlobalState::new();
-    global.users().add_user("admin", "admin");
+    global.users().add_user("admin", "admin", true);
     global
 }
 
