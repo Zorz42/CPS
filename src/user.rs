@@ -68,10 +68,6 @@ impl UserDatabase {
         self.users.get(&id)
     }
 
-    pub fn get_user_mut(&mut self, id: UserId) -> Option<&mut User> {
-        self.users.get_mut(&id)
-    }
-
     pub fn remove_user(&mut self, id: UserId) -> Option<User> {
         self.usernames.remove(&self.users[&id].username);
         self.users.remove(&id)

@@ -141,7 +141,9 @@ async fn handle_request(
             && parts[2] == "problem"
             && parts[4] == "submit_file"
         {
-            if let Some(result) = handle_submission_form(global, user, &parts[3], request).await? {
+            if let Some(result) =
+                handle_submission_form(global, user, &parts[1], &parts[3], request).await?
+            {
                 return Ok(result);
             }
         }
@@ -163,7 +165,7 @@ async fn handle_request(
         }
 
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(global, &parts[1], &parts[3])? {
+            if let Some(result) = create_problem_page(global, &parts[1], &parts[3], user)? {
                 return Ok(result);
             }
         }

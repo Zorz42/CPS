@@ -16,6 +16,12 @@
     <button>Submit</button>
 </form>
 
+{%- for submission in submissions %}
+    <p>
+        Submission {{ submission }}
+    </p>
+{%- endfor -%}
+
 </body>
 
 </html>
