@@ -20,10 +20,11 @@ use anyhow::Result;
 use askama::Template;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
-use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
-use hyper_util::rt::TokioIo;
+use hyper::client::conn::http2;
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use rustls::ServerConfig;
 use tokio::net::TcpListener;
 
 #[derive(Clone)]
@@ -208,23 +209,50 @@ fn init_temporary_data() -> GlobalState {
     global
 }
 
+pub fn get_server_config() -> Result<ServerConfig> {
+    //get key and certificate from files in ./cert/fullchain.pem and ./cert/privkey.pem
+    let mut cert_file = std::io::BufReader::new(std::fs::File::open("./cert/fullchain1.pem")?);
+    let mut key_file = std::io::BufReader::new(std::fs::File::open("./cert/privkey1.pem")?);
+
+    let certificates = rustls_pemfile::certs(&mut cert_file);
+    let certificates = certificates.filter_map(Result::ok).collect();
+    let mut keys = rustls_pemfile::pkcs8_private_keys(&mut key_file);
+    let key = keys
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("error getting a key"))??;
+    let key = rustls_pki_types::PrivateKeyDer::Pkcs8(key);
+
+    //build server config
+    Ok(ServerConfig::builder()
+        .with_no_client_auth() //for now, i'll have to check what this is and verify things
+        .with_single_cert(certificates, key)?)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     let listener = TcpListener::bind(addr).await?;
     let global = init_temporary_data();
     let database = Database::new().await?;
+    let mut server_config = get_server_config()?;
+    server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec(), b"http/1.2".to_vec()];
+    let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
 
     loop {
-        let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
+        let (mut tcp_stream, _) = listener.accept().await?;
+        let tls_acceptor = tls_acceptor.clone();
+        //let io = TokioIo::new(stream);
 
         let global = global.clone();
         tokio::task::spawn(async move {
-            println!("Got connection from: {}", io.inner().peer_addr().unwrap());
+            println!("Got connection from: {}", tcp_stream.peer_addr().unwrap().ip());
+            let tls_stream = tls_acceptor.accept(tcp_stream).await.unwrap();
 
-            if let Err(err) = http1::Builder::new()
-                .serve_connection(io, service_fn(|request| handle_request(request, &global)))
+            if let Err(err) = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+                .serve_connection(TokioIo::new(tls_stream), service_fn(|request| {
+                    let global = global.clone();//we move the value
+                    handle_request(request, &global)
+                }))
                 .await
             {
                 println!("Error serving connection: {:?}", err);
