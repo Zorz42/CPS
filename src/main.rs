@@ -140,17 +140,24 @@ async fn handle_request(
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
 async fn init_temporary_data(database: &Database) {
-    let admin_user = database.add_user("admin", "admin", true).await.unwrap();
-    let contest1 = database.add_contest("Contest 1").await;
-    let _contest2 = database.add_contest("Contest 2").await;
-    let contest10 = database.add_contest("Contest 10").await;
+    let admin_user = database
+        .add_user_override("admin", "admin", true)
+        .await
+        .unwrap();
+    let contest1 = database.add_contest_override("Contest 1").await;
+    let _contest2 = database.add_contest_override("Contest 2").await;
+    let contest10 = database.add_contest_override("Contest 10").await;
     database.add_user_to_contest(admin_user, contest1).await;
     database.add_user_to_contest(admin_user, contest10).await;
 
-    let problem1 = database.add_problem("Problem 1", "Description 1").await;
-    let problem2 = database.add_problem("Problem 2", "Description 2").await;
+    let problem1 = database
+        .add_problem_override("Problem 1", "Description 1")
+        .await;
+    let problem2 = database
+        .add_problem_override("Problem 2", "Description 2")
+        .await;
     let problem3 = database
-        .add_problem("A Hard Problem", "A Hard Description")
+        .add_problem_override("A Hard Problem", "A Hard Description")
         .await;
 
     database.add_problem_to_contest(contest1, problem1).await;

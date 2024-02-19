@@ -83,6 +83,35 @@ impl Database {
         Ok(rows[0].get(0))
     }
 
+    pub async fn delete_user(&self, user_id: UserId) {
+        self.delete_all_tokens_for_user(user_id).await;
+        self.remove_user_from_all_contests(user_id).await;
+        self.get_postgres_client()
+            .execute("DELETE FROM users WHERE user_id = $1", &[&user_id])
+            .await
+            .unwrap();
+    }
+
+    pub async fn delete_all_tokens_for_user(&self, user_id: UserId) {
+        self.get_postgres_client()
+            .execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id])
+            .await
+            .unwrap();
+    }
+
+    pub async fn add_user_override(
+        &self,
+        username: &str,
+        password: &str,
+        is_admin: bool,
+    ) -> Result<UserId> {
+        if let Some(user_id) = self.get_user_from_username(username).await? {
+            self.delete_user(user_id).await;
+        }
+
+        self.add_user(username, password, is_admin).await
+    }
+
     pub async fn try_login(&self, username: &str, password: &str) -> Result<Option<UserId>> {
         let user_id = self.get_user_from_username(username).await?;
         let user_id = match user_id {

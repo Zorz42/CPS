@@ -96,11 +96,51 @@ impl Database {
             .get(0)
     }
 
+    pub async fn remove_problem(&self, problem_id: ProblemId) {
+        self.get_postgres_client()
+            .execute("DELETE FROM problems WHERE problem_id = $1", &[&problem_id])
+            .await
+            .unwrap();
+    }
+
+    pub async fn get_problem_id_from_name(&self, problem_name: &str) -> Option<ProblemId> {
+        self.get_postgres_client()
+            .query(
+                "SELECT problem_id FROM problems WHERE problem_name = $1",
+                &[&problem_name],
+            )
+            .await
+            .ok()
+            .map(|rows| rows.get(0).map(|row| row.get(0)))
+            .flatten()
+    }
+
+    pub async fn add_problem_override(
+        &self,
+        problem_name: &str,
+        problem_description: &str,
+    ) -> ProblemId {
+        if let Some(problem_id) = self.get_problem_id_from_name(problem_name).await {
+            self.remove_problem(problem_id).await;
+        }
+        self.add_problem(problem_name, problem_description).await
+    }
+
     pub async fn add_problem_to_contest(&self, contest_id: ContestId, problem_id: ProblemId) {
         self.get_postgres_client()
             .execute(
                 "INSERT INTO contest_problems (contest_id, problem_id) VALUES ($1, $2)",
                 &[&contest_id, &problem_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn remove_all_problems_from_contest(&self, contest_id: ContestId) {
+        self.get_postgres_client()
+            .execute(
+                "DELETE FROM contest_problems WHERE contest_id = $1",
+                &[&contest_id],
             )
             .await
             .unwrap();

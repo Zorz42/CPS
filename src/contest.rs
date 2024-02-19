@@ -94,11 +94,63 @@ impl Database {
             .get(0)
     }
 
+    pub async fn remove_contest(&self, contest_id: ContestId) {
+        self.remove_all_participations_for_contest(contest_id).await;
+        self.remove_all_problems_from_contest(contest_id).await;
+
+        self.get_postgres_client()
+            .execute("DELETE FROM contests WHERE contest_id = $1", &[&contest_id])
+            .await
+            .unwrap();
+    }
+
+    pub async fn remove_all_participations_for_contest(&self, contest_id: ContestId) {
+        self.get_postgres_client()
+            .execute(
+                "DELETE FROM contest_participations WHERE contest_id = $1",
+                &[&contest_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn get_contest_from_name(&self, contest_name: &str) -> Option<ContestId> {
+        let rows = self
+            .get_postgres_client()
+            .query(
+                "SELECT contest_id FROM contests WHERE contest_name = $1",
+                &[&contest_name],
+            )
+            .await
+            .unwrap();
+        if rows.is_empty() {
+            return None;
+        }
+        Some(rows[0].get(0))
+    }
+
+    pub async fn add_contest_override(&self, contest_name: &str) -> ContestId {
+        if let Some(contest_id) = self.get_contest_from_name(contest_name).await {
+            self.remove_contest(contest_id).await;
+        }
+        self.add_contest(contest_name).await
+    }
+
     pub async fn add_user_to_contest(&self, user_id: UserId, contest_id: ContestId) {
         self.get_postgres_client()
             .execute(
                 "INSERT INTO contest_participations (contest_id, user_id) VALUES ($1, $2)",
                 &[&contest_id, &user_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn remove_user_from_all_contests(&self, user_id: UserId) {
+        self.get_postgres_client()
+            .execute(
+                "DELETE FROM contest_participations WHERE user_id = $1",
+                &[&user_id],
             )
             .await
             .unwrap();
