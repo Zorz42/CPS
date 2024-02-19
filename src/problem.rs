@@ -1,6 +1,6 @@
 use crate::contest::ContestId;
-use crate::create_html_response;
 use crate::database::Database;
+use crate::request_handler::create_html_response;
 use crate::submission::SubmissionId;
 use crate::user::UserId;
 use anyhow::Result;
@@ -98,6 +98,9 @@ impl Database {
     }
 
     pub async fn remove_problem(&self, problem_id: ProblemId) {
+        self.delete_all_subtasks_and_tests_for_problem(problem_id)
+            .await;
+
         self.get_postgres_client()
             .execute("DELETE FROM problems WHERE problem_id = $1", &[&problem_id])
             .await

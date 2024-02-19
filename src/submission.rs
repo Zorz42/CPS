@@ -1,7 +1,7 @@
 use crate::database::Database;
 use crate::problem::ProblemId;
+use crate::request_handler::{create_html_response, RedirectSite};
 use crate::user::UserId;
-use crate::{create_html_response, RedirectSite};
 use anyhow::Result;
 use http_body_util::BodyExt;
 use http_body_util::Full;
@@ -12,13 +12,27 @@ pub type SubmissionId = i32;
 
 impl Database {
     pub async fn init_submissions(&self) {
+        // create testing result enum type
+        self.get_postgres_client()
+            .execute(
+                "DO $$ BEGIN
+                            CREATE TYPE TESTING_RESULT AS ENUM ('IN_QUEUE', 'COMPILING', 'TESTING', 'ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'RUNTIME_ERROR', 'COMPILATION_ERROR', 'UNKNOWN_ERROR');
+                        EXCEPTION
+                            WHEN duplicate_object THEN null;
+                        END $$;",
+                &[],
+            )
+            .await
+            .unwrap();
+
         self.get_postgres_client()
             .execute(
                 "CREATE TABLE IF NOT EXISTS submissions (
                     submission_id SERIAL PRIMARY KEY,
                     user_id INT REFERENCES users(user_id),
                     problem_id INT REFERENCES problems(problem_id),
-                    code TEXT NOT NULL
+                    code TEXT NOT NULL,
+                    result TESTING_RESULT
                 );",
                 &[],
             )
@@ -57,6 +71,13 @@ impl Database {
             .iter()
             .map(|row| row.get(0))
             .collect()
+    }
+
+    pub async fn delete_all_submissions_for_user(&self, user_id: UserId) {
+        self.get_postgres_client()
+            .execute("DELETE FROM submissions WHERE user_id = $1", &[&user_id])
+            .await
+            .unwrap();
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::database::Database;
-use crate::{create_html_response, RedirectSite};
+use crate::request_handler::{create_html_response, RedirectSite};
 use anyhow::{bail, Result};
 use askama::Template;
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -12,7 +12,7 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::time::Duration;
 
-const TOKEN_EXPIRY: Duration = Duration::from_secs(60 * 60);
+const TOKEN_EXPIRY: Duration = Duration::from_secs(60 * 60 * 24);
 const TOKEN_LENGTH: usize = 255;
 
 pub type UserId = i32;
@@ -86,6 +86,7 @@ impl Database {
     pub async fn delete_user(&self, user_id: UserId) {
         self.delete_all_tokens_for_user(user_id).await;
         self.remove_user_from_all_contests(user_id).await;
+        self.delete_all_submissions_for_user(user_id).await;
         self.get_postgres_client()
             .execute("DELETE FROM users WHERE user_id = $1", &[&user_id])
             .await

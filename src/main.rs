@@ -1,6 +1,8 @@
 mod contest;
 mod database;
+mod main_page;
 mod problem;
+mod request_handler;
 mod submission;
 mod test;
 mod user;
@@ -8,137 +10,13 @@ mod user;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::contest::create_contest_page;
 use crate::database::Database;
-use crate::problem::create_problem_page;
-use crate::submission::handle_submission_form;
-use crate::user::{
-    create_login_page, get_login_token, handle_login_form, handle_logout_form, UserId,
-};
+use crate::request_handler::handle_request;
 use anyhow::Result;
-use askama::Template;
-use http_body_util::Full;
-use hyper::body::{Bytes, Incoming};
-use hyper::client::conn::http2;
 use hyper::service::service_fn;
-use hyper::{Request, Response};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::ServerConfig;
 use tokio::net::TcpListener;
-
-pub fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
-    let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
-    Ok(response)
-}
-
-#[derive(Template)]
-#[template(path = "redirect.html")]
-pub struct RedirectSite {
-    url: String,
-}
-
-#[derive(Template)]
-#[template(path = "not_found.html")]
-pub struct NotFoundSite;
-
-#[derive(Template)]
-#[template(path = "main.html")]
-pub struct MainSite {
-    logged_in: bool,
-    username: String,
-    contests: Vec<(i32, String)>,
-}
-
-pub async fn create_main_page(
-    database: &Database,
-    user: Option<UserId>,
-) -> Result<Response<Full<Bytes>>> {
-    let mut contests = Vec::new();
-    if let Some(user) = user {
-        for id in database.get_contests_for_user(user).await {
-            contests.push((id, database.get_contest_name(id).await));
-        }
-    }
-
-    let username = if let Some(user) = user {
-        database.get_username(user).await?.unwrap_or_default()
-    } else {
-        "".to_owned()
-    };
-
-    Ok(create_html_response(MainSite {
-        logged_in: user.is_some(),
-        username,
-        contests,
-    })?)
-}
-
-async fn handle_request(
-    request: Request<Incoming>,
-    database: Database,
-) -> Result<Response<Full<Bytes>>> {
-    let token = get_login_token(&request);
-    let user = if let Some(token) = &token {
-        database.get_user_from_token(token.clone()).await?
-    } else {
-        None
-    };
-
-    let mut parts = request
-        .uri()
-        .path()
-        .split('/')
-        .map(|x| x.to_owned())
-        .collect::<Vec<String>>();
-    parts.retain(|x| !x.is_empty());
-
-    if request.method() == hyper::Method::POST {
-        if parts == ["login"] {
-            return handle_login_form(&database, request).await;
-        }
-
-        if parts == ["logout"] {
-            return handle_logout_form(&database, token).await;
-        }
-
-        if parts.len() == 5
-            && parts[0] == "contest"
-            && parts[2] == "problem"
-            && parts[4] == "submit_file"
-        {
-            if let Some(result) =
-                handle_submission_form(&database, user, &parts[1], &parts[3], request).await?
-            {
-                return Ok(result);
-            }
-        }
-    } else if request.method() == hyper::Method::GET {
-        // if the path is empty, we are at the root of the website
-        if parts.is_empty() {
-            return create_main_page(&database, user).await;
-        }
-
-        // if the path is ["login"], we are at the login page
-        if parts == ["login"] {
-            return create_login_page();
-        }
-
-        if parts.len() == 2 && parts[0] == "contest" {
-            if let Some(result) = create_contest_page(&database, &parts[1]).await? {
-                return Ok(result);
-            }
-        }
-
-        if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await?
-            {
-                return Ok(result);
-            }
-        }
-    }
-
-    Ok(create_html_response(NotFoundSite)?)
-}
 
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
@@ -154,7 +32,7 @@ async fn init_temporary_data(database: &Database) {
     database.add_user_to_contest(admin_user, contest10).await;
 
     let problem1 = database
-        .add_problem_override("Problem 1", "Description 1")
+        .add_problem_override("Problem 1", "You get a and b and you have to return a + b.")
         .await;
     let problem2 = database
         .add_problem_override("Problem 2", "Description 2")
@@ -166,10 +44,58 @@ async fn init_temporary_data(database: &Database) {
     database.add_problem_to_contest(contest1, problem1).await;
     database.add_problem_to_contest(contest10, problem2).await;
     database.add_problem_to_contest(contest10, problem3).await;
+
+    // subtask1: small inputs
+    let subtask1 = database.add_subtask(problem1, 30).await;
+    // subtask2: large inputs
+    let subtask2 = database.add_subtask(problem1, 30).await;
+    // subtask3: negative inputs
+    let subtask3 = database.add_subtask(problem1, 40).await;
+
+    let tests = vec![("1 2", "3"), ("3 4", "7"), ("5 6", "11"), ("7 8", "15")];
+    for (input, output) in tests {
+        database
+            .add_test_to_subtask(subtask1, database.add_test(input, output).await)
+            .await;
+        database
+            .add_test_to_subtask(subtask2, database.add_test(input, output).await)
+            .await;
+        database
+            .add_test_to_subtask(subtask3, database.add_test(input, output).await)
+            .await;
+    }
+
+    let tests = vec![
+        ("1000000000 1000000000", "2000000000"),
+        ("1000000000 1000000001", "2000000001"),
+        ("1000000000 1000000002", "2000000002"),
+        ("1000000000 1000000003", "2000000003"),
+        ("1000000000000 1000000000000", "2000000000000"),
+    ];
+
+    for (input, output) in tests {
+        database
+            .add_test_to_subtask(subtask2, database.add_test(input, output).await)
+            .await;
+    }
+
+    let tests = vec![
+        ("-1 -2", "-3"),
+        ("-3 -4", "-7"),
+        ("-5 -6", "-11"),
+        ("-7 -8", "-15"),
+    ];
+    for (input, output) in tests {
+        database
+            .add_test_to_subtask(subtask3, database.add_test(input, output).await)
+            .await;
+    }
+
+    // note: this task and these tests are obviously a joke for testing purposes
 }
 
 pub fn get_server_config() -> Result<ServerConfig> {
-    //get key and certificate from files in ./cert/fullchain.pem and ./cert/privkey.pem
+    // get key and certificate from files in ./cert/fullchain.pem and ./cert/privkey.pem
     let mut cert_file = std::io::BufReader::new(std::fs::File::open("./cert/fullchain1.pem")?);
     let mut key_file = std::io::BufReader::new(std::fs::File::open("./cert/privkey1.pem")?);
 
@@ -181,7 +107,7 @@ pub fn get_server_config() -> Result<ServerConfig> {
         .ok_or_else(|| anyhow::anyhow!("error getting a key"))??;
     let key = rustls_pki_types::PrivateKeyDer::Pkcs8(key);
 
-    //build server config
+    // build server config
     Ok(ServerConfig::builder()
         .with_no_client_auth() //for now, i'll have to check what this is and verify things
         .with_single_cert(certificates, key)?)
@@ -196,7 +122,8 @@ async fn main() -> Result<()> {
     database.init_contests().await?;
     database.init_problems().await?;
     database.init_submissions().await;
-    init_temporary_data(&database).await;
+    database.init_tests().await;
+    // init_temporary_data(&database).await; // this should be called once and then it stays in the database
 
     let server_config = get_server_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
@@ -215,9 +142,8 @@ async fn main() -> Result<()> {
     };
 
     loop {
-        let (mut tcp_stream, _) = listener.accept().await?;
+        let tcp_stream = listener.accept().await?.0;
         let tls_acceptor = tls_acceptor.clone();
-        //let io = TokioIo::new(stream);
 
         let database = database.clone();
         tokio::task::spawn(async move {

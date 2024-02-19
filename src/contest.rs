@@ -1,6 +1,6 @@
-use crate::create_html_response;
 use crate::database::Database;
 use crate::problem::ProblemId;
+use crate::request_handler::create_html_response;
 use crate::user::UserId;
 use anyhow::Result;
 use askama::Template;
