@@ -6,6 +6,7 @@ mod test;
 mod user;
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use crate::contest::create_contest_page;
 use crate::database::Database;
@@ -74,7 +75,7 @@ pub async fn create_main_page(
 
 async fn handle_request(
     request: Request<Incoming>,
-    database: &Database,
+    database: Database,
 ) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
     let user = if let Some(token) = &token {
@@ -93,11 +94,11 @@ async fn handle_request(
 
     if request.method() == hyper::Method::POST {
         if parts == ["login"] {
-            return handle_login_form(database, request).await;
+            return handle_login_form(&database, request).await;
         }
 
         if parts == ["logout"] {
-            return handle_logout_form(database, token).await;
+            return handle_logout_form(&database, token).await;
         }
 
         if parts.len() == 5
@@ -106,7 +107,7 @@ async fn handle_request(
             && parts[4] == "submit_file"
         {
             if let Some(result) =
-                handle_submission_form(database, user, &parts[1], &parts[3], request).await?
+                handle_submission_form(&database, user, &parts[1], &parts[3], request).await?
             {
                 return Ok(result);
             }
@@ -114,7 +115,7 @@ async fn handle_request(
     } else if request.method() == hyper::Method::GET {
         // if the path is empty, we are at the root of the website
         if parts.is_empty() {
-            return create_main_page(database, user).await;
+            return create_main_page(&database, user).await;
         }
 
         // if the path is ["login"], we are at the login page
@@ -123,13 +124,13 @@ async fn handle_request(
         }
 
         if parts.len() == 2 && parts[0] == "contest" {
-            if let Some(result) = create_contest_page(database, &parts[1]).await? {
+            if let Some(result) = create_contest_page(&database, &parts[1]).await? {
                 return Ok(result);
             }
         }
 
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(database, &parts[1], &parts[3], user).await? {
+            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await? {
                 return Ok(result);
             }
         }
@@ -210,8 +211,10 @@ async fn main() -> Result<()> {
             println!("Got connection from: {}", tcp_stream.peer_addr().unwrap().ip());
             let tls_stream = tls_acceptor.accept(tcp_stream).await.unwrap();
 
-            if let Err(err) = hyper_util::server::conn::auto::Builder::new()
-                .serve_connection(io, service_fn(|request| handle_request(request, &database)))
+            if let Err(err) = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
+                .serve_connection(TokioIo::new(tls_stream), service_fn(move |request| {
+                    handle_request(request, database.clone())
+                }))
                 .await
             {
                 println!("Error serving connection: {:?}", err);
