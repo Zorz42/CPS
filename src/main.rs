@@ -213,7 +213,7 @@ async fn main() -> Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
     let global = init_temporary_data();
-    let database = Database::new("127.0.0.1", "test", "test").await?;
+    let database = Database::new().await?;
 
     loop {
         let (stream, _) = listener.accept().await?;

@@ -1,3 +1,4 @@
+use std::env;
 use anyhow::Result;
 
 const DB_NAME: &str = "cps";
@@ -7,9 +8,13 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new(address: &str, user: &str, password: &str) -> Result<Database> {
+    pub async fn new() -> Result<Database> {
+        let args: Vec<String> = env::args().collect();
+        let username = args.get(1).ok_or(anyhow::anyhow!("no username argument"))?;
+        let password = args.get(2).ok_or(anyhow::anyhow!("no password argument"))?;
+        let host = args.get(3).ok_or(anyhow::anyhow!("no host argument"))?;
         let (client, connection) = tokio_postgres::connect(
-            &format!("host={address} user={user} password={password} dbname={DB_NAME}"),
+            &format!("host={host} user={username} password={password} dbname={DB_NAME}"),
             tokio_postgres::NoTls,
         )
         .await?;
