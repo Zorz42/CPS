@@ -26,7 +26,7 @@ impl Database {
             .execute(
                 "CREATE TABLE IF NOT EXISTS problems (
                     problem_id SERIAL PRIMARY KEY,
-                    problem_name VARCHAR(100) NOT NULL,
+                    problem_name VARCHAR(100) UNIQUE NOT NULL,
                     problem_description TEXT NOT NULL
                 );",
                 &[],

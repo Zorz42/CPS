@@ -24,7 +24,7 @@ impl Database {
             .execute(
                 "CREATE TABLE IF NOT EXISTS contests (
                     contest_id SERIAL PRIMARY KEY,
-                    contest_name VARCHAR(100) NOT NULL
+                    contest_name VARCHAR(100) UNIQUE NOT NULL
                 );",
                 &[],
             )

@@ -31,7 +31,7 @@ impl Database {
             .execute(
                 "CREATE TABLE IF NOT EXISTS users (
                     user_id SERIAL PRIMARY KEY,
-                    username VARCHAR(50) NOT NULL,
+                    username VARCHAR(50) UNIQUE NOT NULL,
                     password VARCHAR(100) NOT NULL,
                     is_admin BOOLEAN NOT NULL
                 );",
@@ -46,7 +46,7 @@ impl Database {
                 &format!(
                     "CREATE TABLE IF NOT EXISTS tokens (
                     token VARCHAR({TOKEN_LENGTH}) NOT NULL,
-                    expiration_date TIMESTAMP NOT NULL,
+                    expiration_date TIMESTAMPTZ NOT NULL,
                     user_id INT REFERENCES users(user_id)
                 );"
                 ),
@@ -71,11 +71,6 @@ impl Database {
     }
 
     pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
-        // first check if the user already exists
-        if let Some(user_id) = self.get_user_from_username(username).await? {
-            return Ok(user_id);
-        }
-
         let hashed_password = hash(password, DEFAULT_COST)?;
 
         // create the user and return the user_id
@@ -130,10 +125,11 @@ impl Database {
             .take(255)
             .map(char::from)
             .collect();
+        let expiration_date = chrono::Utc::now() + TOKEN_EXPIRY;
         self.get_postgres_client()
             .execute(
                 "INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)",
-                &[&token, &(chrono::Utc::now() + TOKEN_EXPIRY), &user_id],
+                &[&token, &expiration_date, &user_id],
             )
             .await
             .unwrap();
