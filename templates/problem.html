@@ -16,9 +16,9 @@
     <button>Submit</button>
 </form>
 
-{%- for submission in submissions %}
+{%- for submission_id in submissions %}
     <p>
-        Submission {{ submission }}
+        <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/">Submission {{ submission_id }} </a>
     </p>
 {%- endfor -%}
 

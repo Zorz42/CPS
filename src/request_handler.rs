@@ -2,7 +2,7 @@ use crate::contest::create_contest_page;
 use crate::database::Database;
 use crate::main_page::create_main_page;
 use crate::problem::create_problem_page;
-use crate::submission::handle_submission_form;
+use crate::submission::{create_submission_page, handle_submission_form};
 use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form};
 use askama::Template;
 use http_body_util::Full;
@@ -83,6 +83,16 @@ pub async fn handle_request(
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
             if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await?
             {
+                return Ok(result);
+            }
+        }
+
+        if parts.len() == 6
+            && parts[0] == "contest"
+            && parts[2] == "problem"
+            && parts[4] == "submission"
+        {
+            if let Some(result) = create_submission_page(&database, &parts[5]).await? {
                 return Ok(result);
             }
         }

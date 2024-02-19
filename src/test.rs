@@ -51,8 +51,8 @@ impl Database {
                 "CREATE TABLE IF NOT EXISTS subtask_results (
                         submission_id INT REFERENCES submissions(submission_id),
                         subtask_id INT REFERENCES subtasks(subtask_id),
-                        points INT NOT NULL,
-                        result TESTING_RESULT
+                        points INT,
+                        result INT NOT NULL
                     );",
                 &[],
             )
@@ -65,7 +65,7 @@ impl Database {
                 "CREATE TABLE IF NOT EXISTS test_results (
                         submission_id INT REFERENCES submissions(submission_id),
                         test_id INT REFERENCES tests(test_id),
-                        result TESTING_RESULT
+                        result INT NOT NULL
                     );",
                 &[],
             )
@@ -176,5 +176,18 @@ impl Database {
             .execute("DELETE FROM tests WHERE problem_id = $1", &[&problem_id])
             .await
             .unwrap();
+    }
+
+    pub async fn get_all_tests_for_problem(&self, problem_id: i32) -> Vec<TestId> {
+        self.get_postgres_client()
+            .query(
+                "SELECT test_id FROM tests WHERE problem_id = $1",
+                &[&problem_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
     }
 }

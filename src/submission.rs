@@ -3,6 +3,7 @@ use crate::problem::ProblemId;
 use crate::request_handler::{create_html_response, RedirectSite};
 use crate::user::UserId;
 use anyhow::Result;
+use askama::Template;
 use http_body_util::BodyExt;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
@@ -10,21 +11,72 @@ use hyper::{Request, Response};
 
 pub type SubmissionId = i32;
 
+pub enum TestingResult {
+    InQueue,
+    Compiling,
+    Testing,
+    Accepted,
+    WrongAnswer,
+    RuntimeError,
+    TimeLimitExceeded,
+    MemoryLimitExceeded,
+    InternalError,
+}
+
+// make sure that testing results are stored in the database as integers
+pub fn testing_result_to_i32(result: TestingResult) -> i32 {
+    match result {
+        TestingResult::InQueue => 0,
+        TestingResult::Compiling => 1,
+        TestingResult::Testing => 2,
+        TestingResult::Accepted => 3,
+        TestingResult::WrongAnswer => 4,
+        TestingResult::RuntimeError => 5,
+        TestingResult::TimeLimitExceeded => 6,
+        TestingResult::MemoryLimitExceeded => 7,
+        TestingResult::InternalError => 8,
+    }
+}
+
+pub fn i32_to_testing_result(result: i32) -> TestingResult {
+    match result {
+        0 => TestingResult::InQueue,
+        1 => TestingResult::Compiling,
+        2 => TestingResult::Testing,
+        3 => TestingResult::Accepted,
+        4 => TestingResult::WrongAnswer,
+        5 => TestingResult::RuntimeError,
+        6 => TestingResult::TimeLimitExceeded,
+        7 => TestingResult::MemoryLimitExceeded,
+        8 => TestingResult::InternalError,
+        _ => panic!("Invalid testing result"),
+    }
+}
+
+// make sure to display testing results as strings in the HTML
+pub fn testing_result_to_string(result: TestingResult) -> String {
+    match result {
+        TestingResult::InQueue => "In Queue".to_string(),
+        TestingResult::Compiling => "Compiling".to_string(),
+        TestingResult::Testing => "Testing".to_string(),
+        TestingResult::Accepted => "Accepted".to_string(),
+        TestingResult::WrongAnswer => "Wrong Answer".to_string(),
+        TestingResult::RuntimeError => "Runtime Error".to_string(),
+        TestingResult::TimeLimitExceeded => "Time Limit Exceeded".to_string(),
+        TestingResult::MemoryLimitExceeded => "Memory Limit Exceeded".to_string(),
+        TestingResult::InternalError => "Internal Error".to_string(),
+    }
+}
+
+#[derive(Template)]
+#[template(path = "submission.html")]
+pub struct SubmissionSite {
+    code: String,
+    subtasks: Vec<(i32, String, Vec<String>)>,
+}
+
 impl Database {
     pub async fn init_submissions(&self) {
-        // create testing result enum type
-        self.get_postgres_client()
-            .execute(
-                "DO $$ BEGIN
-                            CREATE TYPE TESTING_RESULT AS ENUM ('IN_QUEUE', 'COMPILING', 'TESTING', 'ACCEPTED', 'WRONG_ANSWER', 'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'RUNTIME_ERROR', 'COMPILATION_ERROR', 'UNKNOWN_ERROR');
-                        EXCEPTION
-                            WHEN duplicate_object THEN null;
-                        END $$;",
-                &[],
-            )
-            .await
-            .unwrap();
-
         self.get_postgres_client()
             .execute(
                 "CREATE TABLE IF NOT EXISTS submissions (
@@ -32,7 +84,7 @@ impl Database {
                     user_id INT REFERENCES users(user_id),
                     problem_id INT REFERENCES problems(problem_id),
                     code TEXT NOT NULL,
-                    result TESTING_RESULT
+                    result INT NOT NULL
                 );",
                 &[],
             )
@@ -46,14 +98,42 @@ impl Database {
         problem_id: ProblemId,
         code: String,
     ) -> SubmissionId {
-        self.get_postgres_client()
+        let submission_id = self.get_postgres_client()
             .query(
-                "INSERT INTO submissions (user_id, problem_id, code) VALUES ($1, $2, $3) RETURNING submission_id",
-                &[&user_id, &problem_id, &code],
+                "INSERT INTO submissions (user_id, problem_id, code, result) VALUES ($1, $2, $3, $4) RETURNING submission_id",
+                &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue)],
             ).await
             .unwrap()
             .get(0).unwrap()
-            .get(0)
+            .get(0);
+
+        // add all subtasks for the problem
+        let subtasks = self.get_subtasks_for_problem(problem_id).await;
+        for subtask in subtasks {
+            self.get_postgres_client()
+                .execute(
+                    "INSERT INTO subtask_results (submission_id, subtask_id, result) VALUES ($1, $2, $3)",
+                    &[&submission_id, &subtask, &testing_result_to_i32(TestingResult::InQueue)],
+                ).await.unwrap();
+        }
+
+        // add all tests for the problem
+        let tests = self.get_all_tests_for_problem(problem_id).await;
+        for test in tests {
+            self.get_postgres_client()
+                .execute(
+                    "INSERT INTO test_results (submission_id, test_id, result) VALUES ($1, $2, $3)",
+                    &[
+                        &submission_id,
+                        &test,
+                        &testing_result_to_i32(TestingResult::InQueue),
+                    ],
+                )
+                .await
+                .unwrap();
+        }
+
+        submission_id
     }
 
     pub async fn get_submissions_by_user_for_problem(
@@ -140,4 +220,11 @@ pub async fn handle_submission_form(
     Ok(Some(create_html_response(RedirectSite {
         url: format!("/contest/{}/problem/{}", contest_id, problem_id),
     })?))
+}
+
+pub async fn create_submission_page(
+    database: &Database,
+    submission_id: &str,
+) -> Result<Option<Response<Full<Bytes>>>> {
+    Ok(None)
 }
