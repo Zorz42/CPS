@@ -1,4 +1,6 @@
 use crate::database::Database;
+use crate::problem::ProblemId;
+use crate::submission::{i32_to_testing_result, SubmissionId, TestingResult};
 
 pub type TestId = i32;
 pub type SubtaskId = i32;
@@ -73,11 +75,16 @@ impl Database {
             .unwrap();
     }
 
-    pub async fn add_test(&self, input_data: &str, output_data: &str) -> TestId {
+    pub async fn add_test(
+        &self,
+        input_data: &str,
+        output_data: &str,
+        problem_id: ProblemId,
+    ) -> TestId {
         self.get_postgres_client()
             .query(
-                "INSERT INTO tests (input_data, output_data) VALUES ($1, $2) RETURNING test_id",
-                &[&input_data, &output_data],
+                "INSERT INTO tests (input_data, output_data, problem_id) VALUES ($1, $2, $3) RETURNING test_id",
+                &[&input_data, &output_data, &problem_id],
             )
             .await
             .unwrap()
@@ -189,5 +196,93 @@ impl Database {
             .iter()
             .map(|row| row.get(0))
             .collect()
+    }
+
+    pub async fn get_subtasks_for_submission(&self, submission_id: SubmissionId) -> Vec<i32> {
+        self.get_postgres_client()
+            .query(
+                "SELECT subtask_id FROM subtask_results WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
+    }
+
+    pub async fn get_tests_for_subtask_in_submission(
+        &self,
+        submission_id: SubmissionId,
+        subtask_id: SubtaskId,
+    ) -> Vec<i32> {
+        self.get_postgres_client()
+            .query(
+                "SELECT test_id FROM test_results WHERE submission_id = $1 AND test_id IN (SELECT test_id FROM subtask_tests WHERE subtask_id = $2)",
+                &[&submission_id, &subtask_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
+    }
+
+    pub async fn get_test_result(
+        &self,
+        submission_id: SubmissionId,
+        test_id: TestId,
+    ) -> TestingResult {
+        let result = self
+            .get_postgres_client()
+            .query(
+                "SELECT result FROM test_results WHERE submission_id = $1 AND test_id = $2",
+                &[&submission_id, &test_id],
+            )
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get(0);
+
+        i32_to_testing_result(result)
+    }
+
+    pub async fn get_subtask_result(
+        &self,
+        submission_id: SubmissionId,
+        subtask_id: SubtaskId,
+    ) -> TestingResult {
+        let result = self
+            .get_postgres_client()
+            .query(
+                "SELECT result FROM subtask_results WHERE submission_id = $1 AND subtask_id = $2",
+                &[&submission_id, &subtask_id],
+            )
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get(0);
+
+        i32_to_testing_result(result)
+    }
+
+    pub async fn delete_all_results_for_submission(&self, submission_id: SubmissionId) {
+        self.get_postgres_client()
+            .execute(
+                "DELETE FROM test_results WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap();
+
+        self.get_postgres_client()
+            .execute(
+                "DELETE FROM subtask_results WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap();
     }
 }

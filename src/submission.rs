@@ -153,11 +153,41 @@ impl Database {
             .collect()
     }
 
+    pub async fn get_all_submissions_for_user(&self, user_id: UserId) -> Vec<SubmissionId> {
+        self.get_postgres_client()
+            .query(
+                "SELECT submission_id FROM submissions WHERE user_id = $1",
+                &[&user_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
+    }
+
     pub async fn delete_all_submissions_for_user(&self, user_id: UserId) {
+        for submission in self.get_all_submissions_for_user(user_id).await {
+            self.delete_all_results_for_submission(submission).await;
+        }
+
         self.get_postgres_client()
             .execute("DELETE FROM submissions WHERE user_id = $1", &[&user_id])
             .await
             .unwrap();
+    }
+
+    pub async fn get_submission_code(&self, submission_id: SubmissionId) -> String {
+        self.get_postgres_client()
+            .query(
+                "SELECT code FROM submissions WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get(0)
     }
 }
 
@@ -226,5 +256,32 @@ pub async fn create_submission_page(
     database: &Database,
     submission_id: &str,
 ) -> Result<Option<Response<Full<Bytes>>>> {
+    if let Ok(submission_id) = submission_id.parse() {
+        let code = database.get_submission_code(submission_id).await;
+        let subtasks = database.get_subtasks_for_submission(submission_id).await;
+        let mut subtask_vec = Vec::new();
+        for subtask in subtasks {
+            let tests = database
+                .get_tests_for_subtask_in_submission(submission_id, subtask)
+                .await;
+            let mut test_vec = Vec::new();
+            for test in tests {
+                test_vec.push(testing_result_to_string(
+                    database.get_test_result(submission_id, test).await,
+                ));
+            }
+            subtask_vec.push((
+                subtask,
+                testing_result_to_string(database.get_subtask_result(submission_id, subtask).await),
+                test_vec,
+            ));
+        }
+
+        return Ok(Some(create_html_response(SubmissionSite {
+            code,
+            subtasks: subtask_vec,
+        })?));
+    }
+
     Ok(None)
 }

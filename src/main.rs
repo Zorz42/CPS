@@ -55,13 +55,13 @@ async fn init_temporary_data(database: &Database) {
     let tests = vec![("1 2", "3"), ("3 4", "7"), ("5 6", "11"), ("7 8", "15")];
     for (input, output) in tests {
         database
-            .add_test_to_subtask(subtask1, database.add_test(input, output).await)
+            .add_test_to_subtask(subtask1, database.add_test(input, output, problem1).await)
             .await;
         database
-            .add_test_to_subtask(subtask2, database.add_test(input, output).await)
+            .add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await)
             .await;
         database
-            .add_test_to_subtask(subtask3, database.add_test(input, output).await)
+            .add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await)
             .await;
     }
 
@@ -75,7 +75,7 @@ async fn init_temporary_data(database: &Database) {
 
     for (input, output) in tests {
         database
-            .add_test_to_subtask(subtask2, database.add_test(input, output).await)
+            .add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await)
             .await;
     }
 
@@ -87,7 +87,7 @@ async fn init_temporary_data(database: &Database) {
     ];
     for (input, output) in tests {
         database
-            .add_test_to_subtask(subtask3, database.add_test(input, output).await)
+            .add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await)
             .await;
     }
 
