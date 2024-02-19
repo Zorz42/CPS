@@ -17,6 +17,7 @@ pub struct ProblemSite {
     contest_id: ContestId,
     problem_id: ProblemId,
     problem_name: String,
+    problem_description: String,
     submissions: Vec<SubmissionId>,
 }
 
@@ -145,6 +146,18 @@ impl Database {
             .await
             .unwrap();
     }
+
+    pub async fn get_problem_description(&self, problem_id: ProblemId) -> String {
+        self.get_postgres_client()
+            .query(
+                "SELECT problem_description FROM problems WHERE problem_id = $1",
+                &[&problem_id],
+            )
+            .await
+            .ok()
+            .map(|rows| rows[0].get(0))
+            .unwrap_or("".to_string())
+    }
 }
 
 pub async fn create_problem_page(
@@ -173,9 +186,12 @@ pub async fn create_problem_page(
             Vec::new()
         };
 
+        let problem_description = database.get_problem_description(problem_id).await;
+
         return Ok(Some(create_html_response(ProblemSite {
             contest_id,
             problem_id,
+            problem_description,
             problem_name: database.get_problem_name(problem_id).await.clone(),
             submissions,
         })?));
