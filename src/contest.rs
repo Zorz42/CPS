@@ -94,7 +94,7 @@ impl Database {
             .get(0)
     }
 
-    pub async fn add_user_to_contest(&self, contest_id: ContestId, user_id: UserId) {
+    pub async fn add_user_to_contest(&self, user_id: UserId, contest_id: ContestId) {
         self.get_postgres_client()
             .execute(
                 "INSERT INTO contest_participations (contest_id, user_id) VALUES ($1, $2)",

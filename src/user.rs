@@ -72,8 +72,8 @@ impl Database {
 
     pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
         // first check if the user already exists
-        if self.get_user_from_username(username).await?.is_some() {
-            bail!("User already exists");
+        if let Some(user_id) = self.get_user_from_username(username).await? {
+            return Ok(user_id);
         }
 
         let hashed_password = hash(password, DEFAULT_COST)?;
