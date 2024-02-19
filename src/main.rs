@@ -1,20 +1,18 @@
 mod contest;
 mod database;
-mod id;
 mod problem;
 mod submission;
 mod test;
 mod user;
 
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::contest::{create_contest_page, ContestDatabase};
+use crate::contest::create_contest_page;
 use crate::database::Database;
-use crate::problem::{create_problem_page, ProblemDatabase};
-use crate::submission::{handle_submission_form, SubmissionDatabase};
+use crate::problem::create_problem_page;
+use crate::submission::handle_submission_form;
 use crate::user::{
-    create_login_page, get_login_token, handle_login_form, handle_logout_form, UserDatabase, UserId,
+    create_login_page, get_login_token, handle_login_form, handle_logout_form, UserId,
 };
 use anyhow::Result;
 use askama::Template;
@@ -26,43 +24,6 @@ use hyper::client::conn::http2;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::ServerConfig;
 use tokio::net::TcpListener;
-
-#[derive(Clone)]
-pub struct GlobalState {
-    users: Arc<Mutex<UserDatabase>>,
-    contests: Arc<Mutex<ContestDatabase>>,
-    problems: Arc<Mutex<ProblemDatabase>>,
-    submissions: Arc<Mutex<SubmissionDatabase>>,
-}
-
-impl GlobalState {
-    fn new() -> GlobalState {
-        GlobalState {
-            users: Arc::new(Mutex::new(UserDatabase::new())),
-            contests: Arc::new(Mutex::new(ContestDatabase::new())),
-            problems: Arc::new(Mutex::new(ProblemDatabase::new())),
-            submissions: Arc::new(Mutex::new(SubmissionDatabase::new())),
-        }
-    }
-
-    fn users(&self) -> MutexGuard<UserDatabase> {
-        self.users.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    fn contests(&self) -> MutexGuard<ContestDatabase> {
-        self.contests.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    fn problems(&self) -> MutexGuard<ProblemDatabase> {
-        self.problems.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    fn submissions(&self) -> MutexGuard<SubmissionDatabase> {
-        self.submissions
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-    }
-}
 
 pub fn create_html_response<T: Template>(site_object: T) -> Result<Response<Full<Bytes>>> {
     let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
@@ -84,43 +45,43 @@ pub struct NotFoundSite;
 pub struct MainSite {
     logged_in: bool,
     username: String,
-    contests: Vec<(u128, String)>,
+    contests: Vec<(i32, String)>,
 }
 
-pub fn create_main_page(
-    global: &GlobalState,
+pub async fn create_main_page(
+    database: &Database,
     user: Option<UserId>,
 ) -> Result<Response<Full<Bytes>>> {
     let mut contests = Vec::new();
     if let Some(user) = user {
-        let contests_obj = global.contests();
-        contests = contests_obj
-            .get_available_contests(user)
-            .iter()
-            .map(|id| {
-                (
-                    id.to_int(),
-                    contests_obj.get_contest(*id).unwrap().name.clone(),
-                )
-            })
-            .collect();
+        for id in database.get_contests_for_user(user).await {
+            contests.push((id, database.get_contest_name(id).await));
+        }
     }
+
+    let username = if let Some(user) = user {
+        database.get_username(user).await?.unwrap_or_default()
+    } else {
+        "".to_owned()
+    };
 
     Ok(create_html_response(MainSite {
         logged_in: user.is_some(),
-        username: user
-            .map(|id| global.users().get_user(id).unwrap().username.clone())
-            .unwrap_or_default(),
+        username,
         contests,
     })?)
 }
 
 async fn handle_request(
     request: Request<Incoming>,
-    global: &GlobalState,
+    database: &Database,
 ) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
-    let user = token.and_then(|token| global.users().get_user_id_by_token(token));
+    let user = if let Some(token) = &token {
+        database.get_user_from_token(token.clone()).await?
+    } else {
+        None
+    };
 
     let mut parts = request
         .uri()
@@ -132,11 +93,11 @@ async fn handle_request(
 
     if request.method() == hyper::Method::POST {
         if parts == ["login"] {
-            return handle_login_form(global, request).await;
+            return handle_login_form(database, request).await;
         }
 
         if parts == ["logout"] {
-            return handle_logout_form(global, token).await;
+            return handle_logout_form(database, token).await;
         }
 
         if parts.len() == 5
@@ -145,7 +106,7 @@ async fn handle_request(
             && parts[4] == "submit_file"
         {
             if let Some(result) =
-                handle_submission_form(global, user, &parts[1], &parts[3], request).await?
+                handle_submission_form(database, user, &parts[1], &parts[3], request).await?
             {
                 return Ok(result);
             }
@@ -153,7 +114,7 @@ async fn handle_request(
     } else if request.method() == hyper::Method::GET {
         // if the path is empty, we are at the root of the website
         if parts.is_empty() {
-            return create_main_page(global, user);
+            return create_main_page(database, user).await;
         }
 
         // if the path is ["login"], we are at the login page
@@ -162,13 +123,13 @@ async fn handle_request(
         }
 
         if parts.len() == 2 && parts[0] == "contest" {
-            if let Some(result) = create_contest_page(global, &parts[1])? {
+            if let Some(result) = create_contest_page(database, &parts[1]).await? {
                 return Ok(result);
             }
         }
 
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(global, &parts[1], &parts[3], user)? {
+            if let Some(result) = create_problem_page(database, &parts[1], &parts[3], user).await? {
                 return Ok(result);
             }
         }
@@ -179,34 +140,30 @@ async fn handle_request(
 
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
-fn init_temporary_data() -> GlobalState {
-    let global = GlobalState::new();
-    let admin_user = global.users().add_user("admin", "admin", true);
-    let contest1 = global.contests().add_contest("Contest 1");
-    let _contest2 = global.contests().add_contest("Contest 2");
-    let contest10 = global.contests().add_contest("Contest 10");
-    global
-        .contests()
-        .make_contest_available(admin_user, contest1);
-    global
-        .contests()
-        .make_contest_available(admin_user, contest10);
+async fn init_temporary_data(database: &Database) {
+    let admin_user = database
+        .add_user_override("admin", "admin", true)
+        .await
+        .unwrap();
+    let contest1 = database.add_contest_override("Contest 1").await;
+    let _contest2 = database.add_contest_override("Contest 2").await;
+    let contest10 = database.add_contest_override("Contest 10").await;
+    database.add_user_to_contest(admin_user, contest1).await;
+    database.add_user_to_contest(admin_user, contest10).await;
 
-    let problem1 = global.problems().add_problem("Problem 1", "Description 1");
-    let problem2 = global.problems().add_problem("Problem 2", "Description 2");
-    let problem3 = global
-        .problems()
-        .add_problem("A Hard Problem", "A Hard Description");
+    let problem1 = database
+        .add_problem_override("Problem 1", "Description 1")
+        .await;
+    let problem2 = database
+        .add_problem_override("Problem 2", "Description 2")
+        .await;
+    let problem3 = database
+        .add_problem_override("A Hard Problem", "A Hard Description")
+        .await;
 
-    global.contests().add_problem_to_contest(contest1, problem1);
-    global
-        .contests()
-        .add_problem_to_contest(contest10, problem2);
-    global
-        .contests()
-        .add_problem_to_contest(contest10, problem3);
-
-    global
+    database.add_problem_to_contest(contest1, problem1).await;
+    database.add_problem_to_contest(contest10, problem2).await;
+    database.add_problem_to_contest(contest10, problem3).await;
 }
 
 pub fn get_server_config() -> Result<ServerConfig> {
@@ -232,8 +189,13 @@ pub fn get_server_config() -> Result<ServerConfig> {
 async fn main() -> Result<()> {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     let listener = TcpListener::bind(addr).await?;
-    let global = init_temporary_data();
     let database = Database::new().await?;
+    database.init_users().await;
+    database.init_contests().await?;
+    database.init_problems().await?;
+    database.init_submissions().await;
+    init_temporary_data(&database).await;
+
     let mut server_config = get_server_config()?;
     server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec(), b"http/1.2".to_vec()];
     let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
@@ -243,16 +205,13 @@ async fn main() -> Result<()> {
         let tls_acceptor = tls_acceptor.clone();
         //let io = TokioIo::new(stream);
 
-        let global = global.clone();
+        let database = database.clone();
         tokio::task::spawn(async move {
             println!("Got connection from: {}", tcp_stream.peer_addr().unwrap().ip());
             let tls_stream = tls_acceptor.accept(tcp_stream).await.unwrap();
 
-            if let Err(err) = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
-                .serve_connection(TokioIo::new(tls_stream), service_fn(|request| {
-                    let global = global.clone();//we move the value
-                    handle_request(request, &global)
-                }))
+            if let Err(err) = hyper_util::server::conn::auto::Builder::new()
+                .serve_connection(io, service_fn(|request| handle_request(request, &database)))
                 .await
             {
                 println!("Error serving connection: {:?}", err);

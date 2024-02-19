@@ -1,10 +1,12 @@
-use std::env;
 use anyhow::Result;
+use std::env;
+use std::sync::Arc;
 
 const DB_NAME: &str = "cps";
 
+#[derive(Clone)]
 pub struct Database {
-    postgres_client: tokio_postgres::Client,
+    postgres_client: Arc<tokio_postgres::Client>,
 }
 
 impl Database {
@@ -27,7 +29,7 @@ impl Database {
         });
 
         Ok(Database {
-            postgres_client: client,
+            postgres_client: Arc::new(client),
         })
     }
 

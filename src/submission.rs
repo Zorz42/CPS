@@ -1,72 +1,62 @@
-use crate::id::GenericId;
-use crate::problem::{ProblemDatabase, ProblemId};
-use crate::test::EvaluationSubtask;
+use crate::database::Database;
+use crate::problem::ProblemId;
 use crate::user::UserId;
-use crate::{create_html_response, GlobalState, RedirectSite};
+use crate::{create_html_response, RedirectSite};
 use anyhow::Result;
 use http_body_util::BodyExt;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
-use std::collections::HashMap;
 
-pub type SubmissionId = GenericId;
+pub type SubmissionId = i32;
 
-pub enum EvaluationStatus {
-    Pending,
-    Compiling,
-    Testing,
-    Accepted,
-    WrongAnswer,
-    CompilationError,
-    RuntimeError,
-    TimeLimitExceeded,
-    MemoryLimitExceeded,
-    InternalError,
-    Unknown,
-}
-
-pub struct Submission {
-    pub user_id: UserId,
-    pub problem_id: ProblemId,
-    pub code: String,
-    pub status: EvaluationStatus,
-    pub subtasks: Vec<EvaluationSubtask>,
-}
-
-pub struct SubmissionDatabase {
-    submissions: HashMap<SubmissionId, Submission>,
-}
-
-impl SubmissionDatabase {
-    pub fn new() -> SubmissionDatabase {
-        SubmissionDatabase {
-            submissions: HashMap::new(),
-        }
+impl Database {
+    pub async fn init_submissions(&self) {
+        self.get_postgres_client()
+            .execute(
+                "CREATE TABLE IF NOT EXISTS submissions (
+                    submission_id SERIAL PRIMARY KEY,
+                    user_id INT REFERENCES users(user_id),
+                    problem_id INT REFERENCES problems(problem_id),
+                    code TEXT NOT NULL
+                );",
+                &[],
+            )
+            .await
+            .unwrap();
     }
 
-    pub fn add_submission(
-        &mut self,
+    pub async fn add_submission(
+        &self,
         user_id: UserId,
         problem_id: ProblemId,
         code: String,
-        problems: &mut ProblemDatabase,
     ) -> SubmissionId {
-        let id = SubmissionId::new();
-        self.submissions.insert(
-            id,
-            Submission {
-                user_id,
-                problem_id,
-                code,
-                status: EvaluationStatus::Pending,
-                subtasks: Vec::new(),
-            },
-        );
+        self.get_postgres_client()
+            .query(
+                "INSERT INTO submissions (user_id, problem_id, code) VALUES ($1, $2, $3) RETURNING submission_id",
+                &[&user_id, &problem_id, &code],
+            ).await
+            .unwrap()
+            .get(0).unwrap()
+            .get(0)
+    }
 
-        problems.add_submission(problem_id, id, user_id);
-
-        id
+    pub async fn get_submissions_by_user_for_problem(
+        &self,
+        user_id: UserId,
+        problem_id: ProblemId,
+    ) -> Vec<SubmissionId> {
+        self.get_postgres_client()
+            .query(
+                "SELECT submission_id FROM submissions WHERE user_id = $1 AND problem_id = $2",
+                &[&user_id, &problem_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
     }
 }
 
@@ -114,7 +104,7 @@ async fn extract_file_from_request(request: Request<Incoming>) -> Result<String>
 }
 
 pub async fn handle_submission_form(
-    state: &GlobalState,
+    database: &Database,
     user_id: Option<UserId>,
     contest_id: &str,
     problem_id: &str,
@@ -122,15 +112,9 @@ pub async fn handle_submission_form(
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
 
-    let mut submissions = state.submissions();
-    let mut problems = state.problems();
-
-    submissions.add_submission(
-        user_id.unwrap(),
-        ProblemId::from_int(problem_id.parse().unwrap()),
-        code,
-        &mut problems,
-    );
+    database
+        .add_submission(user_id.unwrap(), problem_id.parse().unwrap(), code)
+        .await;
 
     Ok(Some(create_html_response(RedirectSite {
         url: format!("/contest/{}/problem/{}", contest_id, problem_id),
