@@ -19,9 +19,9 @@ use anyhow::Result;
 use askama::Template;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
+use hyper::client::conn::http2;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
-use hyper::client::conn::http2;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::ServerConfig;
 use tokio::net::TcpListener;
@@ -130,7 +130,8 @@ async fn handle_request(
         }
 
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await? {
+            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await?
+            {
                 return Ok(result);
             }
         }
@@ -197,9 +198,21 @@ async fn main() -> Result<()> {
     database.init_submissions().await;
     init_temporary_data(&database).await;
 
-    let mut server_config = get_server_config()?;
-    server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec(), b"http/1.2".to_vec()];
-    let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+    let server_config = get_server_config();
+    let tls_acceptor = if let Ok(mut server_config) = server_config {
+        server_config.alpn_protocols = vec![
+            b"h2".to_vec(),
+            b"http/1.1".to_vec(),
+            b"http/1.0".to_vec(),
+            b"http/1.2".to_vec(),
+        ];
+        Some(tokio_rustls::TlsAcceptor::from(Arc::new(server_config)))
+    } else {
+        println!("Error getting server config");
+        println!("If you wish to use TLS (https), please provide a valid certificate and key in the ./cert/ directory.");
+        println!("Reverting to http...");
+        None
+    };
 
     loop {
         let (mut tcp_stream, _) = listener.accept().await?;
@@ -208,15 +221,28 @@ async fn main() -> Result<()> {
 
         let database = database.clone();
         tokio::task::spawn(async move {
-            println!("Got connection from: {}", tcp_stream.peer_addr().unwrap().ip());
-            let tls_stream = tls_acceptor.accept(tcp_stream).await.unwrap();
+            println!(
+                "Got connection from: {}",
+                tcp_stream.peer_addr().unwrap().ip()
+            );
 
-            if let Err(err) = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())
-                .serve_connection(TokioIo::new(tls_stream), service_fn(move |request| {
-                    handle_request(request, database.clone())
-                }))
-                .await
-            {
+            let tokio_builder = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new());
+            let service = service_fn(move |request| handle_request(request, database.clone()));
+
+            let result = if let Some(tls_acceptor) = tls_acceptor {
+                tokio_builder
+                    .serve_connection(
+                        TokioIo::new(tls_acceptor.accept(tcp_stream).await.unwrap()),
+                        service,
+                    )
+                    .await
+            } else {
+                tokio_builder
+                    .serve_connection(TokioIo::new(tcp_stream), service)
+                    .await
+            };
+
+            if let Err(err) = result {
                 println!("Error serving connection: {:?}", err);
             }
         });
