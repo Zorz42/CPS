@@ -103,7 +103,6 @@ async fn compile_code(code: &str) -> PathBuf {
 #[derive(Clone)]
 pub struct WorkerManager {
     workers: Arc<Vec<(Sender<(SubmissionId, TestId, Arc<PathBuf>)>, Arc<AtomicI32>)>>,
-    lock: Arc<Mutex<()>>,
 }
 
 impl WorkerManager {
@@ -114,7 +113,6 @@ impl WorkerManager {
         }
         WorkerManager {
             workers: Arc::new(workers),
-            lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -124,27 +122,22 @@ impl WorkerManager {
         test_id: TestId,
         executable: Arc<PathBuf>,
     ) {
-        // holds a lock to the workers, so that we can find the worker with the smallest queue size
-        let _ = self.lock.lock().await;
-
         let mut min_queue_size = i32::MAX;
+        let mut min_queue_index = 0;
         for (_sender, queue_size) in self.workers.iter() {
             let queue_size = queue_size.load(Ordering::SeqCst);
             if queue_size < min_queue_size {
                 min_queue_size = queue_size;
+                min_queue_index += 1;
             }
         }
 
-        for (sender, queue_size) in self.workers.iter() {
-            if queue_size.load(Ordering::SeqCst) == min_queue_size {
-                sender
-                    .send((submission_id, test_id, executable))
-                    .await
-                    .unwrap();
-                queue_size.fetch_add(1, Ordering::SeqCst);
-                break;
-            }
-        }
+        let (sender, queue_size) = &self.workers[min_queue_index];
+        queue_size.fetch_add(1, Ordering::SeqCst);
+        sender
+            .send((submission_id, test_id, executable))
+            .await
+            .unwrap();
     }
 
     pub async fn test_submission(&self, submission_id: SubmissionId, database: &Database) {

@@ -73,7 +73,8 @@ pub fn testing_result_to_string(result: TestingResult) -> String {
 #[template(path = "submission.html")]
 pub struct SubmissionSite {
     code: String,
-    subtasks: Vec<(i32, String, Vec<String>)>,
+    subtasks: Vec<(String, i32, String, Vec<String>)>,
+    result: String,
 }
 
 impl Database {
@@ -85,7 +86,8 @@ impl Database {
                     user_id INT REFERENCES users(user_id),
                     problem_id INT REFERENCES problems(problem_id),
                     code TEXT NOT NULL,
-                    result INT NOT NULL
+                    result INT NOT NULL,
+                    tests_done INT NOT NULL
                 );",
                 &[],
             )
@@ -102,8 +104,8 @@ impl Database {
     ) -> SubmissionId {
         let submission_id = self.get_postgres_client()
                                 .query(
-                                    "INSERT INTO submissions (user_id, problem_id, code, result) VALUES ($1, $2, $3, $4) RETURNING submission_id",
-                                    &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue)],
+                                    "INSERT INTO submissions (user_id, problem_id, code, result, tests_done) VALUES ($1, $2, $3, $4, $5) RETURNING submission_id",
+                                    &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue), &0],
                                 ).await
                                 .unwrap()
                                 .get(0).unwrap()
@@ -143,6 +145,8 @@ impl Database {
 
         submission_id
     }
+
+    pub async fn update_submission_result(&self, submission_id: SubmissionId) {}
 
     pub async fn get_submissions_by_user_for_problem(
         &self,
@@ -196,6 +200,21 @@ impl Database {
             .get(0)
             .unwrap()
             .get(0)
+    }
+
+    pub async fn get_submission_result(&self, submission_id: SubmissionId) -> TestingResult {
+        i32_to_testing_result(
+            self.get_postgres_client()
+                .query(
+                    "SELECT result FROM submissions WHERE submission_id = $1",
+                    &[&submission_id],
+                )
+                .await
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .get(0),
+        )
     }
 }
 
@@ -280,15 +299,22 @@ pub async fn create_submission_page(
                 ));
             }
             subtask_vec.push((
-                subtask,
+                database
+                    .get_subtask_points_result(submission_id, subtask)
+                    .await
+                    .map_or_else(|| "?".to_owned(), |x| x.to_string()),
+                database.get_subtask_total_points(subtask).await,
                 testing_result_to_string(database.get_subtask_result(submission_id, subtask).await),
                 test_vec,
             ));
         }
 
+        let result = testing_result_to_string(database.get_submission_result(submission_id).await);
+
         return Ok(Some(create_html_response(SubmissionSite {
             code,
             subtasks: subtask_vec,
+            result,
         })?));
     }
 

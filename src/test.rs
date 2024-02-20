@@ -315,4 +315,35 @@ impl Database {
             .await
             .unwrap();
     }
+
+    pub async fn get_subtask_points_result(
+        &self,
+        submission_id: SubmissionId,
+        subtask_id: SubtaskId,
+    ) -> Option<i32> {
+        let column = self
+            .get_postgres_client()
+            .query(
+                "SELECT points FROM subtask_results WHERE submission_id = $1 AND subtask_id = $2",
+                &[&submission_id, &subtask_id],
+            )
+            .await
+            .unwrap();
+        let row = column.get(0).unwrap();
+
+        row.try_get(0).ok()
+    }
+
+    pub async fn get_subtask_total_points(&self, subtask_id: SubtaskId) -> i32 {
+        self.get_postgres_client()
+            .query(
+                "SELECT subtask_score FROM subtasks WHERE subtask_id = $1",
+                &[&subtask_id],
+            )
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get(0)
+    }
 }
