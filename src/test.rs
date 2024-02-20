@@ -309,7 +309,7 @@ impl Database {
     ) {
         self.get_postgres_client()
             .execute(
-                "INSERT INTO test_results (submission_id, test_id, result) VALUES ($1, $2, $3)",
+                "UPDATE test_results SET result = $3 WHERE submission_id = $1 AND test_id = $2",
                 &[&submission_id, &test_id, &testing_result_to_i32(result)],
             )
             .await

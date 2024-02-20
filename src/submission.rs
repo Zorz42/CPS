@@ -27,29 +27,29 @@ pub enum TestingResult {
 // make sure that testing results are stored in the database as integers
 pub fn testing_result_to_i32(result: TestingResult) -> i32 {
     match result {
-        TestingResult::InQueue => 0,
-        TestingResult::Compiling => 1,
-        TestingResult::Testing => 2,
-        TestingResult::Accepted => 3,
-        TestingResult::WrongAnswer => 4,
-        TestingResult::RuntimeError => 5,
-        TestingResult::TimeLimitExceeded => 6,
-        TestingResult::MemoryLimitExceeded => 7,
-        TestingResult::InternalError => 8,
+        TestingResult::InQueue => 1,
+        TestingResult::Compiling => 2,
+        TestingResult::Testing => 3,
+        TestingResult::Accepted => 4,
+        TestingResult::WrongAnswer => 5,
+        TestingResult::RuntimeError => 6,
+        TestingResult::TimeLimitExceeded => 7,
+        TestingResult::MemoryLimitExceeded => 8,
+        TestingResult::InternalError => 9,
     }
 }
 
 pub fn i32_to_testing_result(result: i32) -> TestingResult {
     match result {
-        0 => TestingResult::InQueue,
-        1 => TestingResult::Compiling,
-        2 => TestingResult::Testing,
-        3 => TestingResult::Accepted,
-        4 => TestingResult::WrongAnswer,
-        5 => TestingResult::RuntimeError,
-        6 => TestingResult::TimeLimitExceeded,
-        7 => TestingResult::MemoryLimitExceeded,
-        8 => TestingResult::InternalError,
+        1 => TestingResult::InQueue,
+        2 => TestingResult::Compiling,
+        3 => TestingResult::Testing,
+        4 => TestingResult::Accepted,
+        5 => TestingResult::WrongAnswer,
+        6 => TestingResult::RuntimeError,
+        7 => TestingResult::TimeLimitExceeded,
+        8 => TestingResult::MemoryLimitExceeded,
+        9 => TestingResult::InternalError,
         _ => panic!("Invalid testing result"),
     }
 }
