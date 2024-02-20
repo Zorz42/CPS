@@ -4,6 +4,7 @@ use crate::main_page::create_main_page;
 use crate::problem::create_problem_page;
 use crate::submission::{create_submission_page, handle_submission_form};
 use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form};
+use crate::worker::WorkerManager;
 use askama::Template;
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
@@ -27,6 +28,7 @@ pub struct NotFoundSite;
 pub async fn handle_request(
     request: Request<Incoming>,
     database: Database,
+    workers: WorkerManager,
 ) -> anyhow::Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
     let user = if let Some(token) = &token {
@@ -58,7 +60,8 @@ pub async fn handle_request(
             && parts[4] == "submit_file"
         {
             if let Some(result) =
-                handle_submission_form(&database, user, &parts[1], &parts[3], request).await?
+                handle_submission_form(&database, user, &parts[1], &parts[3], request, &workers)
+                    .await?
             {
                 return Ok(result);
             }

@@ -6,12 +6,14 @@ mod request_handler;
 mod submission;
 mod test;
 mod user;
+mod worker;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::database::Database;
 use crate::request_handler::handle_request;
+use crate::worker::WorkerManager;
 use anyhow::Result;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -125,6 +127,8 @@ async fn main() -> Result<()> {
     database.init_tests().await;
     // init_temporary_data(&database).await; // this should be called once and then it stays in the database
 
+    let workers = WorkerManager::new(4, &database).await;
+
     let server_config = get_server_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
         server_config.alpn_protocols = vec![
@@ -146,6 +150,7 @@ async fn main() -> Result<()> {
         let tls_acceptor = tls_acceptor.clone();
 
         let database = database.clone();
+        let workers = workers.clone();
         tokio::task::spawn(async move {
             println!(
                 "Got connection from: {}",
@@ -153,7 +158,9 @@ async fn main() -> Result<()> {
             );
 
             let tokio_builder = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new());
-            let service = service_fn(move |request| handle_request(request, database.clone()));
+            let service = service_fn(move |request| {
+                handle_request(request, database.clone(), workers.clone())
+            });
 
             let result = if let Some(tls_acceptor) = tls_acceptor {
                 tokio_builder

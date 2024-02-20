@@ -2,6 +2,7 @@ use crate::database::Database;
 use crate::problem::ProblemId;
 use crate::request_handler::{create_html_response, RedirectSite};
 use crate::user::UserId;
+use crate::worker::WorkerManager;
 use anyhow::Result;
 use askama::Template;
 use http_body_util::BodyExt;
@@ -97,15 +98,16 @@ impl Database {
         user_id: UserId,
         problem_id: ProblemId,
         code: String,
+        workers: &WorkerManager,
     ) -> SubmissionId {
         let submission_id = self.get_postgres_client()
-            .query(
-                "INSERT INTO submissions (user_id, problem_id, code, result) VALUES ($1, $2, $3, $4) RETURNING submission_id",
-                &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue)],
-            ).await
-            .unwrap()
-            .get(0).unwrap()
-            .get(0);
+                                .query(
+                                    "INSERT INTO submissions (user_id, problem_id, code, result) VALUES ($1, $2, $3, $4) RETURNING submission_id",
+                                    &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue)],
+                                ).await
+                                .unwrap()
+                                .get(0).unwrap()
+                                .get(0);
 
         // add all subtasks for the problem
         let subtasks = self.get_subtasks_for_problem(problem_id).await;
@@ -132,6 +134,12 @@ impl Database {
                 .await
                 .unwrap();
         }
+
+        let database = self.clone();
+        let workers = workers.clone();
+        tokio::spawn(async move {
+            workers.test_submission(submission_id, &database).await;
+        });
 
         submission_id
     }
@@ -240,11 +248,12 @@ pub async fn handle_submission_form(
     contest_id: &str,
     problem_id: &str,
     request: Request<Incoming>,
+    workers: &WorkerManager,
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
 
     database
-        .add_submission(user_id.unwrap(), problem_id.parse().unwrap(), code)
+        .add_submission(user_id.unwrap(), problem_id.parse().unwrap(), code, workers)
         .await;
 
     Ok(Some(create_html_response(RedirectSite {

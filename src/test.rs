@@ -1,6 +1,8 @@
 use crate::database::Database;
 use crate::problem::ProblemId;
-use crate::submission::{i32_to_testing_result, SubmissionId, TestingResult};
+use crate::submission::{
+    i32_to_testing_result, testing_result_to_i32, SubmissionId, TestingResult,
+};
 
 pub type TestId = i32;
 pub type SubtaskId = i32;
@@ -281,6 +283,34 @@ impl Database {
             .execute(
                 "DELETE FROM subtask_results WHERE submission_id = $1",
                 &[&submission_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn get_tests_for_submission(&self, submission_id: SubmissionId) -> Vec<TestId> {
+        self.get_postgres_client()
+            .query(
+                "SELECT test_id FROM test_results WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get(0))
+            .collect()
+    }
+
+    pub async fn set_test_result(
+        &self,
+        submission_id: SubmissionId,
+        test_id: TestId,
+        result: TestingResult,
+    ) {
+        self.get_postgres_client()
+            .execute(
+                "INSERT INTO test_results (submission_id, test_id, result) VALUES ($1, $2, $3)",
+                &[&submission_id, &test_id, &testing_result_to_i32(result)],
             )
             .await
             .unwrap();
