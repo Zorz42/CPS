@@ -8,10 +8,10 @@
 <h1>Submission</h1>
 <h2>Code</h2>
 <code style="white-space: pre-wrap;">{{ code }}</code>
-<h2>Verdict: {{ result }}</h2>
+<h2>Verdict: {{ result }} {{ score }}</h2>
 <h2>Results</h2>
-{%- for (points, total_points, result, tests) in subtasks -%}
-<h3>Subtask {{ result }} {{ points }}/{{ total_points }}</h3>
+{%- for (points, result, tests) in subtasks -%}
+<h3>Subtask {{ result }} {{ points }}</h3>
 <ul>
     {%- for result in tests -%}
     <li>test {{ result }}</li>

@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, Mutex};
 
 const BUFFER_SIZE: usize = 255;
 
@@ -46,6 +46,14 @@ async fn worker(
         };
 
         queue_size.fetch_sub(1, Ordering::SeqCst);
+        database
+            .increment_submission_tests_done(submission_id)
+            .await;
+        let tests_done = database.get_submission_tests_done(submission_id).await;
+        let total_tests = database.get_tests_for_submission(submission_id).await.len() as i32;
+        if tests_done == total_tests {
+            database.update_submission_result(submission_id).await;
+        }
     }
 }
 

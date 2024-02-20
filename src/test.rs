@@ -137,6 +137,15 @@ impl Database {
     }
 
     pub async fn add_subtask(&self, problem_id: i32, subtask_score: i32) -> SubtaskId {
+        // increment points of the problem
+        self.get_postgres_client()
+            .execute(
+                "UPDATE problems SET points = points + $2 WHERE problem_id = $1",
+                &[&problem_id, &subtask_score],
+            )
+            .await
+            .unwrap();
+
         self.get_postgres_client()
             .query(
                 "INSERT INTO subtasks (problem_id, subtask_score) VALUES ($1, $2) RETURNING subtask_id",

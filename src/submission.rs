@@ -12,6 +12,7 @@ use hyper::{Request, Response};
 
 pub type SubmissionId = i32;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TestingResult {
     InQueue,
     Compiling,
@@ -73,8 +74,9 @@ pub fn testing_result_to_string(result: TestingResult) -> String {
 #[template(path = "submission.html")]
 pub struct SubmissionSite {
     code: String,
-    subtasks: Vec<(String, i32, String, Vec<String>)>,
+    subtasks: Vec<(String, String, Vec<String>)>,
     result: String,
+    score: String,
 }
 
 impl Database {
@@ -87,6 +89,7 @@ impl Database {
                     problem_id INT REFERENCES problems(problem_id),
                     code TEXT NOT NULL,
                     result INT NOT NULL,
+                    points INT,
                     tests_done INT NOT NULL
                 );",
                 &[],
@@ -146,7 +149,73 @@ impl Database {
         submission_id
     }
 
-    pub async fn update_submission_result(&self, submission_id: SubmissionId) {}
+    async fn update_subtask_result(&self, submission_id: SubmissionId, subtask_id: i32) {
+        let tests = self
+            .get_tests_for_subtask_in_submission(submission_id, subtask_id)
+            .await;
+        let mut result = TestingResult::Accepted;
+        for test in tests {
+            let test_result = self.get_test_result(submission_id, test).await;
+            if test_result != TestingResult::Accepted {
+                result = test_result;
+            }
+        }
+
+        self.get_postgres_client()
+            .execute(
+                "UPDATE subtask_results SET result = $1 WHERE submission_id = $2 AND subtask_id = $3",
+                &[&testing_result_to_i32(result), &submission_id, &subtask_id],
+            )
+            .await
+            .unwrap();
+
+        let points = if result == TestingResult::Accepted {
+            self.get_subtask_total_points(subtask_id).await
+        } else {
+            0
+        };
+
+        self.get_postgres_client()
+            .execute(
+                "UPDATE subtask_results SET points = $1 WHERE submission_id = $2 AND subtask_id = $3",
+                &[&points, &submission_id, &subtask_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn update_submission_result(&self, submission_id: SubmissionId) {
+        let subtasks = self.get_subtasks_for_submission(submission_id).await;
+        let mut result = TestingResult::Accepted;
+        let mut points = 0;
+        for subtask in subtasks {
+            self.update_subtask_result(submission_id, subtask).await;
+            let subtask_result = self.get_subtask_result(submission_id, subtask).await;
+            if subtask_result != TestingResult::Accepted {
+                result = subtask_result;
+            }
+            points += self
+                .get_subtask_points_result(submission_id, subtask)
+                .await
+                .unwrap_or(0);
+        }
+
+        self.get_postgres_client()
+            .execute(
+                "UPDATE submissions SET result = $1 WHERE submission_id = $2",
+                &[&testing_result_to_i32(result), &submission_id],
+            )
+            .await
+            .unwrap();
+
+        self.get_postgres_client()
+            .execute(
+                "UPDATE submissions SET points = $1 WHERE submission_id = $2",
+                &[&points, &submission_id],
+            )
+            .await
+            .unwrap();
+    }
 
     pub async fn get_submissions_by_user_for_problem(
         &self,
@@ -215,6 +284,44 @@ impl Database {
                 .unwrap()
                 .get(0),
         )
+    }
+
+    pub async fn get_submission_tests_done(&self, submission_id: SubmissionId) -> i32 {
+        self.get_postgres_client()
+            .query(
+                "SELECT tests_done FROM submissions WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .get(0)
+    }
+
+    pub async fn increment_submission_tests_done(&self, submission_id: SubmissionId) {
+        self.get_postgres_client()
+            .execute(
+                "UPDATE submissions SET tests_done = tests_done + 1 WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn get_submission_points(&self, submission_id: SubmissionId) -> Option<i32> {
+        let column = self
+            .get_postgres_client()
+            .query(
+                "SELECT points FROM submissions WHERE submission_id = $1",
+                &[&submission_id],
+            )
+            .await
+            .unwrap();
+
+        let row = column.get(0).unwrap();
+
+        row.try_get(0).ok()
     }
 }
 
@@ -298,23 +405,44 @@ pub async fn create_submission_page(
                     database.get_test_result(submission_id, test).await,
                 ));
             }
+
+            let points = database
+                .get_subtask_points_result(submission_id, subtask)
+                .await;
+            let score_string = if let Some(points) = points {
+                format!(
+                    "{}/{}",
+                    points,
+                    database.get_subtask_total_points(subtask).await
+                )
+            } else {
+                "".to_owned()
+            };
+
             subtask_vec.push((
-                database
-                    .get_subtask_points_result(submission_id, subtask)
-                    .await
-                    .map_or_else(|| "?".to_owned(), |x| x.to_string()),
-                database.get_subtask_total_points(subtask).await,
+                score_string,
                 testing_result_to_string(database.get_subtask_result(submission_id, subtask).await),
                 test_vec,
             ));
         }
 
         let result = testing_result_to_string(database.get_submission_result(submission_id).await);
+        let points = database.get_submission_points(submission_id).await;
+        let score = if let Some(points) = points {
+            format!(
+                "{}/{}",
+                points,
+                database.get_problem_total_points(submission_id).await
+            )
+        } else {
+            "".to_owned()
+        };
 
         return Ok(Some(create_html_response(SubmissionSite {
             code,
             subtasks: subtask_vec,
             result,
+            score,
         })?));
     }
 

@@ -28,7 +28,8 @@ impl Database {
                 "CREATE TABLE IF NOT EXISTS problems (
                     problem_id SERIAL PRIMARY KEY,
                     problem_name VARCHAR(100) UNIQUE NOT NULL,
-                    problem_description TEXT NOT NULL
+                    problem_description TEXT NOT NULL,
+                    points INT NOT NULL
                 );",
                 &[],
             )
@@ -88,8 +89,8 @@ impl Database {
     pub async fn add_problem(&self, problem_name: &str, problem_description: &str) -> ProblemId {
         self.get_postgres_client()
             .query(
-                "INSERT INTO problems (problem_name, problem_description) VALUES ($1, $2) RETURNING problem_id",
-                &[&problem_name, &problem_description],
+                "INSERT INTO problems (problem_name, problem_description, points) VALUES ($1, $2, $3) RETURNING problem_id",
+                &[&problem_name, &problem_description, &0],
             )
             .await
             .unwrap()
@@ -160,6 +161,18 @@ impl Database {
             .ok()
             .map(|rows| rows[0].get(0))
             .unwrap_or("".to_string())
+    }
+
+    pub async fn get_problem_total_points(&self, problem_id: ProblemId) -> i32 {
+        self.get_postgres_client()
+            .query(
+                "SELECT points FROM problems WHERE problem_id = $1",
+                &[&problem_id],
+            )
+            .await
+            .ok()
+            .map(|rows| rows[0].get(0))
+            .unwrap_or(0)
     }
 }
 
