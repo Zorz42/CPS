@@ -4,6 +4,7 @@ use crate::request_handler::create_html_response;
 use crate::submission::SubmissionId;
 use crate::user::UserId;
 use anyhow::Result;
+use askama::filters::format;
 use askama::Template;
 use http_body_util::Full;
 use hyper::body::Bytes;
@@ -18,7 +19,7 @@ pub struct ProblemSite {
     problem_id: ProblemId,
     problem_name: String,
     problem_description: String,
-    submissions: Vec<SubmissionId>,
+    submissions: Vec<(SubmissionId, String)>,
 }
 
 impl Database {
@@ -195,9 +196,21 @@ pub async fn create_problem_page(
         }
 
         let submissions = if let Some(user_id) = user_id {
-            database
+            let mut res = Vec::new();
+            for id in database
                 .get_submissions_by_user_for_problem(user_id, problem_id)
                 .await
+                .iter()
+            {
+                let total_points = database.get_problem_total_points(problem_id).await;
+                let score = if let Some(points) = database.get_submission_points(*id).await {
+                    format!("{}/{}", points, total_points)
+                } else {
+                    "Testing...".to_string()
+                };
+                res.push((*id, score));
+            }
+            res
         } else {
             Vec::new()
         };
