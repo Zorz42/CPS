@@ -69,7 +69,8 @@ impl Database {
                 "CREATE TABLE IF NOT EXISTS test_results (
                         submission_id INT REFERENCES submissions(submission_id),
                         test_id INT REFERENCES tests(test_id),
-                        result INT NOT NULL
+                        result INT NOT NULL,
+                        time INT
                     );",
                 &[],
             )
@@ -354,5 +355,44 @@ impl Database {
             .get(0)
             .unwrap()
             .get(0)
+    }
+
+    pub async fn get_test_time(&self, submission_id: SubmissionId, test_id: TestId) -> Option<i32> {
+        let column = self
+            .get_postgres_client()
+            .query(
+                "SELECT time FROM test_results WHERE submission_id = $1 AND test_id = $2",
+                &[&submission_id, &test_id],
+            )
+            .await
+            .unwrap();
+        let row = column.get(0).unwrap();
+
+        row.try_get(0).ok()
+    }
+
+    pub async fn set_test_time(&self, submission_id: SubmissionId, test_id: TestId, time: i32) {
+        self.get_postgres_client()
+            .execute(
+                "UPDATE test_results SET time = $3 WHERE submission_id = $1 AND test_id = $2",
+                &[&submission_id, &test_id, &time],
+            )
+            .await
+            .unwrap();
+    }
+
+    pub async fn set_subtask_result(
+        &self,
+        submission_id: SubmissionId,
+        subtask_id: SubtaskId,
+        result: TestingResult,
+    ) {
+        self.get_postgres_client()
+            .execute(
+                "UPDATE subtask_results SET result = $3 WHERE submission_id = $1 AND subtask_id = $2",
+                &[&submission_id, &subtask_id, &testing_result_to_i32(result)],
+            )
+            .await
+            .unwrap();
     }
 }

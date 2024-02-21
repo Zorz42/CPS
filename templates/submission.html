@@ -13,8 +13,8 @@
 {%- for (points, result, tests) in subtasks -%}
 <h3>Subtask {{ result }} {{ points }}</h3>
 <ul>
-    {%- for result in tests -%}
-    <li>test {{ result }}</li>
+    {%- for (result, time) in tests -%}
+    <li>test {{ result }} {{ time }}</li>
     {%- endfor -%}
 </ul>
 {%- endfor -%}

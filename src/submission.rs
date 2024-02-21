@@ -14,7 +14,7 @@ use hyper::{Request, Response};
 #[template(path = "submission.html")]
 pub struct SubmissionSite {
     code: String,
-    subtasks: Vec<(String, String, Vec<String>)>,
+    subtasks: Vec<(String, String, Vec<(String, String)>)>,
     result: String,
     score: String,
 }
@@ -94,9 +94,19 @@ pub async fn create_submission_page(
                 .get_tests_for_subtask_in_submission(submission_id, subtask)
                 .await;
             let mut test_vec = Vec::new();
+
             for test in tests {
-                test_vec.push(testing_result_to_string(
-                    database.get_test_result(submission_id, test).await,
+                let time = database.get_test_time(submission_id, test).await;
+
+                let time_str = if let Some(time) = time {
+                    format!("{}ms", time)
+                } else {
+                    "".to_owned()
+                };
+
+                test_vec.push((
+                    testing_result_to_string(database.get_test_result(submission_id, test).await),
+                    time_str,
                 ));
             }
 

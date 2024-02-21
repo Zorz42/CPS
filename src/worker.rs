@@ -1,4 +1,4 @@
-use crate::database::submission::SubmissionId;
+use crate::database::submission::{SubmissionId, TestingResult};
 use crate::database::test::TestId;
 use crate::database::Database;
 use crate::tester::execute_test;
@@ -22,13 +22,21 @@ async fn worker(
         let (submission_id, test_id, executable) = receiver.recv().await.unwrap();
         // execute the test
 
-        let (input, expected_output) = database.get_test_data(test_id).await;
+        database
+            .set_test_result(submission_id, test_id, TestingResult::Testing)
+            .await;
 
-        let result = execute_test(&input, &expected_output, &executable).await;
+        let (input, expected_output) = database.get_test_data(test_id).await;
+        let problem = database.get_submission_problem(submission_id).await;
+        let time_limit = database.get_problem_time_limit(problem).await;
+
+        let (result, time) = execute_test(&input, &expected_output, &executable, time_limit).await;
 
         database
             .set_test_result(submission_id, test_id, result)
             .await;
+
+        database.set_test_time(submission_id, test_id, time).await;
 
         queue_size.fetch_sub(1, Ordering::SeqCst);
         database
@@ -134,8 +142,21 @@ impl WorkerManager {
     }
 
     pub async fn test_submission(&self, submission_id: SubmissionId, database: &Database) {
+        database
+            .set_submission_result(submission_id, TestingResult::Compiling)
+            .await;
+
         let code = database.get_submission_code(submission_id).await;
         let exe = Arc::new(compile_code(&code).await);
+
+        database
+            .set_submission_result(submission_id, TestingResult::Testing)
+            .await;
+        for subtask in database.get_subtasks_for_submission(submission_id).await {
+            database
+                .set_submission_result(submission_id, TestingResult::Testing)
+                .await;
+        }
 
         let tests = database.get_tests_for_submission(submission_id).await;
         for test in tests {

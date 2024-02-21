@@ -320,4 +320,14 @@ impl Database {
             .unwrap()
             .get(0)
     }
+
+    pub async fn set_submission_result(&self, submission_id: SubmissionId, result: TestingResult) {
+        self.get_postgres_client()
+            .execute(
+                "UPDATE submissions SET result = $1 WHERE submission_id = $2",
+                &[&testing_result_to_i32(result), &submission_id],
+            )
+            .await
+            .unwrap();
+    }
 }

@@ -34,13 +34,17 @@ async fn init_temporary_data(database: &Database) {
     database.add_user_to_contest(admin_user, contest10).await;
 
     let problem1 = database
-        .add_problem_override("Problem 1", "You get a and b and you have to return a + b.")
+        .add_problem_override(
+            "Problem 1",
+            "You get a and b and you have to return a + b.",
+            1000,
+        )
         .await;
     let problem2 = database
-        .add_problem_override("Problem 2", "Description 2")
+        .add_problem_override("Problem 2", "Description 2", 1000)
         .await;
     let problem3 = database
-        .add_problem_override("A Hard Problem", "A Hard Description")
+        .add_problem_override("A Hard Problem", "A Hard Description", 1000)
         .await;
 
     database.add_problem_to_contest(contest1, problem1).await;

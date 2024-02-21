@@ -12,7 +12,8 @@ impl Database {
                     problem_id SERIAL PRIMARY KEY,
                     problem_name VARCHAR(100) UNIQUE NOT NULL,
                     problem_description TEXT NOT NULL,
-                    points INT NOT NULL
+                    points INT NOT NULL,
+                    time_limit INT NOT NULL
                 );",
                 &[],
             )
@@ -69,11 +70,16 @@ impl Database {
             .unwrap_or(Vec::new())
     }
 
-    pub async fn add_problem(&self, problem_name: &str, problem_description: &str) -> ProblemId {
+    pub async fn add_problem(
+        &self,
+        problem_name: &str,
+        problem_description: &str,
+        time_limit: i32,
+    ) -> ProblemId {
         self.get_postgres_client()
             .query(
-                "INSERT INTO problems (problem_name, problem_description, points) VALUES ($1, $2, $3) RETURNING problem_id",
-                &[&problem_name, &problem_description, &0],
+                "INSERT INTO problems (problem_name, problem_description, points, time_limit) VALUES ($1, $2, $3, $4) RETURNING problem_id",
+                &[&problem_name, &problem_description, &0, &time_limit],
             )
             .await
             .unwrap()
@@ -107,11 +113,13 @@ impl Database {
         &self,
         problem_name: &str,
         problem_description: &str,
+        time_limit: i32,
     ) -> ProblemId {
         if let Some(problem_id) = self.get_problem_id_from_name(problem_name).await {
             self.remove_problem(problem_id).await;
         }
-        self.add_problem(problem_name, problem_description).await
+        self.add_problem(problem_name, problem_description, time_limit)
+            .await
     }
 
     pub async fn add_problem_to_contest(&self, contest_id: ContestId, problem_id: ProblemId) {
@@ -150,6 +158,18 @@ impl Database {
         self.get_postgres_client()
             .query(
                 "SELECT points FROM problems WHERE problem_id = $1",
+                &[&problem_id],
+            )
+            .await
+            .ok()
+            .map(|rows| rows[0].get(0))
+            .unwrap_or(0)
+    }
+
+    pub async fn get_problem_time_limit(&self, problem_id: ProblemId) -> i32 {
+        self.get_postgres_client()
+            .query(
+                "SELECT time_limit FROM problems WHERE problem_id = $1",
                 &[&problem_id],
             )
             .await
