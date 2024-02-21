@@ -1,6 +1,6 @@
 use crate::database::user::UserId;
 use crate::database::Database;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 pub type ContestId = i32;
 
@@ -37,8 +37,7 @@ impl Database {
             .query("SELECT contest_id FROM contests WHERE contest_id = $1", &[&contest_id])
             .await
             .ok()
-            .map(|rows| !rows.is_empty())
-            .unwrap_or(false)
+            .is_some_and(|rows| !rows.is_empty())
     }
 
     pub async fn get_contest_name(&self, contest_id: ContestId) -> Result<String> {
@@ -46,7 +45,7 @@ impl Database {
             .get_postgres_client()
             .query("SELECT contest_name FROM contests WHERE contest_id = $1", &[&contest_id])
             .await?
-            .get(0)
+            .first()
             .ok_or_else(|| anyhow::anyhow!("No contest with id {}", contest_id))?
             .get(0))
     }
@@ -70,8 +69,8 @@ impl Database {
     }
 
     pub async fn remove_contest(&self, contest_id: ContestId) -> Result<()> {
-        self.remove_all_participations_for_contest(contest_id).await;
-        self.remove_all_problems_from_contest(contest_id).await;
+        self.remove_all_participations_for_contest(contest_id).await?;
+        self.remove_all_problems_from_contest(contest_id).await?;
 
         self.get_postgres_client().execute("DELETE FROM contests WHERE contest_id = $1", &[&contest_id]).await?;
 
@@ -89,7 +88,7 @@ impl Database {
         if rows.is_empty() {
             return Ok(None);
         }
-        Ok(Some(rows[0].get(0)))
+        Ok(Some(rows.first().ok_or_else(|| anyhow!("Error getting the first row"))?.get(0)))
     }
 
     pub async fn add_contest_override(&self, contest_name: &str) -> Result<ContestId> {

@@ -32,27 +32,26 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
 
         let submissions = if let Some(user_id) = user_id {
             let mut res = Vec::new();
-            for id in database.get_submissions_by_user_for_problem(user_id, problem_id).await.iter() {
-                let total_points = database.get_problem_total_points(problem_id).await;
-                let score = if let Some(points) = database.get_submission_points(*id).await {
-                    format!("{}/{}", points, total_points)
-                } else {
-                    "Testing...".to_string()
-                };
-                res.push((*id, score));
+            for id in database.get_submissions_by_user_for_problem(user_id, problem_id).await? {
+                let total_points = database.get_problem_total_points(problem_id).await?;
+                let score = database
+                    .get_submission_points(id)
+                    .await?
+                    .map_or_else(|| "Testing...".to_owned(), |points| format!("{points}/{total_points}"));
+                res.push((id, score));
             }
             res
         } else {
             Vec::new()
         };
 
-        let problem_description = database.get_problem_description(problem_id).await;
+        let problem_description = database.get_problem_description(problem_id).await?;
 
-        return Ok(Some(create_html_response(ProblemSite {
+        return Ok(Some(create_html_response(&ProblemSite {
             contest_id,
             problem_id,
             problem_description,
-            problem_name: database.get_problem_name(problem_id).await.clone(),
+            problem_name: database.get_problem_name(problem_id).await?,
             submissions,
         })?));
     }

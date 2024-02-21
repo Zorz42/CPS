@@ -19,19 +19,19 @@ pub async fn create_main_page(database: &Database, user: Option<UserId>) -> Resu
     let mut contests = Vec::new();
     if let Some(user) = user {
         for id in database.get_contests_for_user(user).await? {
-            contests.push((id, database.get_contest_name(id).await.unwrap()));
+            contests.push((id, database.get_contest_name(id).await?));
         }
     }
 
     let username = if let Some(user) = user {
         database.get_username(user).await?.unwrap_or_default()
     } else {
-        "".to_owned()
+        String::new()
     };
 
-    Ok(create_html_response(MainSite {
+    create_html_response(&MainSite {
         logged_in: user.is_some(),
         username,
         contests,
-    })?)
+    })
 }

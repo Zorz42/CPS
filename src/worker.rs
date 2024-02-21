@@ -13,18 +13,18 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 const BUFFER_SIZE: usize = 255;
 
-async fn worker(mut receiver: Receiver<(SubmissionId, TestId, Arc<PathBuf>)>, queue_size: Arc<AtomicI32>, database: Database) {
+async fn worker(mut receiver: Receiver<(SubmissionId, TestId, Arc<PathBuf>)>, queue_size: Arc<AtomicI32>, database: Database) -> ! {
     loop {
         let (submission_id, test_id, executable) = receiver.recv().await.unwrap();
         // execute the test
 
         database.set_test_result(submission_id, test_id, TestingResult::Testing).await;
 
-        let (input, expected_output) = database.get_test_data(test_id).await;
-        let problem = database.get_submission_problem(submission_id).await;
-        let time_limit = database.get_problem_time_limit(problem).await;
+        let (input, expected_output) = database.get_test_data(test_id).await.unwrap();
+        let problem = database.get_submission_problem(submission_id).await.unwrap();
+        let time_limit = database.get_problem_time_limit(problem).await.unwrap();
 
-        let (result, time) = execute_test(&input, &expected_output, &executable, time_limit).await;
+        let (result, time) = execute_test(&input, &expected_output, &executable, time_limit).await.unwrap();
 
         database.set_test_result(submission_id, test_id, result).await;
 
@@ -32,8 +32,8 @@ async fn worker(mut receiver: Receiver<(SubmissionId, TestId, Arc<PathBuf>)>, qu
 
         queue_size.fetch_sub(1, Ordering::SeqCst);
         database.increment_submission_tests_done(submission_id).await;
-        let tests_done = database.get_submission_tests_done(submission_id).await;
-        let total_tests = database.get_tests_for_submission(submission_id).await.len() as i32;
+        let tests_done = database.get_submission_tests_done(submission_id).await.unwrap();
+        let total_tests = database.get_tests_for_submission(submission_id).await.unwrap().len() as i32;
         if tests_done == total_tests {
             database.update_submission_result(submission_id).await;
         }
@@ -122,15 +122,15 @@ impl WorkerManager {
     pub async fn test_submission(&self, submission_id: SubmissionId, database: &Database) {
         database.set_submission_result(submission_id, TestingResult::Compiling).await;
 
-        let code = database.get_submission_code(submission_id).await;
+        let code = database.get_submission_code(submission_id).await.unwrap();
         let exe = Arc::new(compile_code(&code).await);
 
         database.set_submission_result(submission_id, TestingResult::Testing).await;
-        for subtask in database.get_subtasks_for_submission(submission_id).await {
+        for subtask in database.get_subtasks_for_submission(submission_id).await.unwrap() {
             database.set_subtask_result(submission_id, subtask, TestingResult::Testing).await;
         }
 
-        let tests = database.get_tests_for_submission(submission_id).await;
+        let tests = database.get_tests_for_submission(submission_id).await.unwrap();
         for test in tests {
             self.execute_test(submission_id, test, exe.clone()).await;
         }
