@@ -1,7 +1,7 @@
 use crate::database::problem::ProblemId;
+use crate::database::test::SubtaskId;
 use crate::database::user::UserId;
 use crate::database::Database;
-use crate::database::test::SubtaskId;
 use crate::worker::WorkerManager;
 
 pub type SubmissionId = i32;
@@ -20,7 +20,7 @@ pub enum TestingResult {
 }
 
 // make sure that testing results are stored in the database as integers
-pub fn testing_result_to_i32(result: TestingResult) -> i32 {
+pub const fn testing_result_to_i32(result: TestingResult) -> i32 {
     match result {
         TestingResult::InQueue => 1,
         TestingResult::Compiling => 2,

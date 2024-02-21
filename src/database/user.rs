@@ -12,7 +12,7 @@ pub type UserId = i32;
 pub type UserToken = String;
 
 impl Database {
-    pub async fn init_users(&self) {
+    pub async fn init_users(&self) -> Result<()> {
         // create the users table
         self.get_postgres_client()
             .execute(
@@ -24,8 +24,7 @@ impl Database {
                 );",
                 &[],
             )
-            .await
-            .unwrap();
+            .await?;
 
         // create the tokens table
         self.get_postgres_client()
@@ -39,8 +38,9 @@ impl Database {
                 ),
                 &[],
             )
-            .await
-            .unwrap();
+            .await?;
+
+        Ok(())
     }
 
     pub async fn get_user_from_username(&self, username: &str) -> Result<Option<UserId>> {
@@ -111,14 +111,13 @@ impl Database {
         Ok(Some(rows[0].get(0)))
     }
 
-    pub async fn add_token(&self, user_id: UserId) -> UserToken {
+    pub async fn add_token(&self, user_id: UserId) -> Result<UserToken> {
         let token: UserToken = rand::thread_rng().sample_iter(&Alphanumeric).take(255).map(char::from).collect();
         let expiration_date = chrono::Utc::now() + TOKEN_EXPIRY;
         self.get_postgres_client()
             .execute("INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)", &[&token, &expiration_date, &user_id])
-            .await
-            .unwrap();
-        token
+            .await?;
+        Ok(token)
     }
 
     pub async fn remove_token(&self, token: UserToken) {

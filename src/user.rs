@@ -38,7 +38,7 @@ pub async fn handle_login_form(database: &Database, request: Request<Incoming>) 
     let (username, password) = parse_login_string(&body);
 
     return if let Some(id) = database.try_login(&username, &password).await? {
-        let token = database.add_token(id).await;
+        let token = database.add_token(id).await?;
 
         let mut response = create_html_response(RedirectSite { url: "/".to_owned() })?;
 
