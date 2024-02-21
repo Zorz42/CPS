@@ -4,7 +4,7 @@ mod main_page;
 mod problem;
 mod request_handler;
 mod submission;
-mod test;
+mod tester;
 mod user;
 mod worker;
 

@@ -1,6 +1,7 @@
+use crate::database::submission::SubmissionId;
+use crate::database::test::TestId;
 use crate::database::Database;
-use crate::submission::{SubmissionId, TestingResult};
-use crate::test::TestId;
+use crate::tester::execute_test;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -21,29 +22,13 @@ async fn worker(
         let (submission_id, test_id, executable) = receiver.recv().await.unwrap();
         // execute the test
 
-        let mut child = Command::new(executable.as_os_str())
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-
         let (input, expected_output) = database.get_test_data(test_id).await;
 
-        let mut stdin = child.stdin.as_mut().unwrap();
-        stdin.write_all(input.as_bytes()).await.unwrap();
+        let result = execute_test(&input, &expected_output, &executable).await;
 
-        let output = child.wait_with_output().await.unwrap();
-        let output = String::from_utf8(output.stdout).unwrap();
-
-        if output == expected_output {
-            database
-                .set_test_result(submission_id, test_id, TestingResult::Accepted)
-                .await;
-        } else {
-            database
-                .set_test_result(submission_id, test_id, TestingResult::WrongAnswer)
-                .await;
-        };
+        database
+            .set_test_result(submission_id, test_id, result)
+            .await;
 
         queue_size.fetch_sub(1, Ordering::SeqCst);
         database

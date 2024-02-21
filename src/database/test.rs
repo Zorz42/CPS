@@ -1,8 +1,8 @@
-use crate::database::Database;
-use crate::problem::ProblemId;
-use crate::submission::{
+use crate::database::problem::ProblemId;
+use crate::database::submission::{
     i32_to_testing_result, testing_result_to_i32, SubmissionId, TestingResult,
 };
+use crate::database::Database;
 
 pub type TestId = i32;
 pub type SubtaskId = i32;

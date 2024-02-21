@@ -1,3 +1,9 @@
+pub mod contest;
+pub mod problem;
+pub mod submission;
+pub mod test;
+pub mod user;
+
 use anyhow::Result;
 use std::env;
 use std::sync::Arc;
@@ -19,7 +25,7 @@ impl Database {
             &format!("host={host} user={username} password={password} dbname={DB_NAME}"),
             tokio_postgres::NoTls,
         )
-        .await?;
+            .await?;
 
         // Spawn a new task to process the connection in the background.
         tokio::spawn(async move {

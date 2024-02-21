@@ -1,6 +1,6 @@
+use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::create_html_response;
-use crate::user::UserId;
 use askama::Template;
 use http_body_util::Full;
 use hyper::body::Bytes;
