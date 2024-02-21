@@ -20,16 +20,8 @@ pub struct ProblemSite {
     submissions: Vec<(SubmissionId, String)>,
 }
 
-pub async fn create_problem_page(
-    database: &Database,
-    contest_id: &str,
-    problem_id: &str,
-    user_id: Option<UserId>,
-) -> Result<Option<Response<Full<Bytes>>>> {
-    if let (Some(contest_id), Some(problem_id)) = (
-        contest_id.parse::<ContestId>().ok(),
-        problem_id.parse::<ProblemId>().ok(),
-    ) {
+pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
+    if let (Some(contest_id), Some(problem_id)) = (contest_id.parse::<ContestId>().ok(), problem_id.parse::<ProblemId>().ok()) {
         if !database.is_contest_id_valid(contest_id).await {
             return Ok(None);
         }
@@ -40,11 +32,7 @@ pub async fn create_problem_page(
 
         let submissions = if let Some(user_id) = user_id {
             let mut res = Vec::new();
-            for id in database
-                .get_submissions_by_user_for_problem(user_id, problem_id)
-                .await
-                .iter()
-            {
+            for id in database.get_submissions_by_user_for_problem(user_id, problem_id).await.iter() {
                 let total_points = database.get_problem_total_points(problem_id).await;
                 let score = if let Some(points) = database.get_submission_points(*id).await {
                     format!("{}/{}", points, total_points)

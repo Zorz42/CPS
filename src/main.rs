@@ -23,29 +23,16 @@ use tokio::net::TcpListener;
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
 async fn init_temporary_data(database: &Database) {
-    let admin_user = database
-        .add_user_override("admin", "admin", true)
-        .await
-        .unwrap();
+    let admin_user = database.add_user_override("admin", "admin", true).await.unwrap();
     let contest1 = database.add_contest_override("Contest 1").await;
     let _contest2 = database.add_contest_override("Contest 2").await;
     let contest10 = database.add_contest_override("Contest 10").await;
     database.add_user_to_contest(admin_user, contest1).await;
     database.add_user_to_contest(admin_user, contest10).await;
 
-    let problem1 = database
-        .add_problem_override(
-            "Problem 1",
-            "You get a and b and you have to return a + b.",
-            1000,
-        )
-        .await;
-    let problem2 = database
-        .add_problem_override("Problem 2", "Description 2", 1000)
-        .await;
-    let problem3 = database
-        .add_problem_override("A Hard Problem", "A Hard Description", 1000)
-        .await;
+    let problem1 = database.add_problem_override("Problem 1", "You get a and b and you have to return a + b.", 1000).await;
+    let problem2 = database.add_problem_override("Problem 2", "Description 2", 1000).await;
+    let problem3 = database.add_problem_override("A Hard Problem", "A Hard Description", 1000).await;
 
     database.add_problem_to_contest(contest1, problem1).await;
     database.add_problem_to_contest(contest10, problem2).await;
@@ -60,15 +47,9 @@ async fn init_temporary_data(database: &Database) {
 
     let tests = vec![("1 2", "3"), ("3 4", "7"), ("5 6", "11"), ("7 8", "15")];
     for (input, output) in tests {
-        database
-            .add_test_to_subtask(subtask1, database.add_test(input, output, problem1).await)
-            .await;
-        database
-            .add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await)
-            .await;
-        database
-            .add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await)
-            .await;
+        database.add_test_to_subtask(subtask1, database.add_test(input, output, problem1).await).await;
+        database.add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await).await;
+        database.add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await).await;
     }
 
     let tests = vec![
@@ -80,21 +61,12 @@ async fn init_temporary_data(database: &Database) {
     ];
 
     for (input, output) in tests {
-        database
-            .add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await)
-            .await;
+        database.add_test_to_subtask(subtask2, database.add_test(input, output, problem1).await).await;
     }
 
-    let tests = vec![
-        ("-1 -2", "-3"),
-        ("-3 -4", "-7"),
-        ("-5 -6", "-11"),
-        ("-7 -8", "-15"),
-    ];
+    let tests = vec![("-1 -2", "-3"), ("-3 -4", "-7"), ("-5 -6", "-11"), ("-7 -8", "-15")];
     for (input, output) in tests {
-        database
-            .add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await)
-            .await;
+        database.add_test_to_subtask(subtask3, database.add_test(input, output, problem1).await).await;
     }
 
     // note: this task and these tests are obviously a joke for testing purposes
@@ -108,9 +80,7 @@ pub fn get_server_config() -> Result<ServerConfig> {
     let certificates = rustls_pemfile::certs(&mut cert_file);
     let certificates = certificates.filter_map(Result::ok).collect();
     let mut keys = rustls_pemfile::pkcs8_private_keys(&mut key_file);
-    let key = keys
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("error getting a key"))??;
+    let key = keys.next().ok_or_else(|| anyhow::anyhow!("error getting a key"))??;
     let key = rustls_pki_types::PrivateKeyDer::Pkcs8(key);
 
     // build server config
@@ -135,12 +105,7 @@ async fn main() -> Result<()> {
 
     let server_config = get_server_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
-        server_config.alpn_protocols = vec![
-            b"h2".to_vec(),
-            b"http/1.1".to_vec(),
-            b"http/1.0".to_vec(),
-            b"http/1.2".to_vec(),
-        ];
+        server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec(), b"http/1.2".to_vec()];
         Some(tokio_rustls::TlsAcceptor::from(Arc::new(server_config)))
     } else {
         println!("Error getting server config");
@@ -156,27 +121,15 @@ async fn main() -> Result<()> {
         let database = database.clone();
         let workers = workers.clone();
         tokio::task::spawn(async move {
-            println!(
-                "Got connection from: {}",
-                tcp_stream.peer_addr().unwrap().ip()
-            );
+            println!("Got connection from: {}", tcp_stream.peer_addr().unwrap().ip());
 
             let tokio_builder = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new());
-            let service = service_fn(move |request| {
-                handle_request(request, database.clone(), workers.clone())
-            });
+            let service = service_fn(move |request| handle_request(request, database.clone(), workers.clone()));
 
             let result = if let Some(tls_acceptor) = tls_acceptor {
-                tokio_builder
-                    .serve_connection(
-                        TokioIo::new(tls_acceptor.accept(tcp_stream).await.unwrap()),
-                        service,
-                    )
-                    .await
+                tokio_builder.serve_connection(TokioIo::new(tls_acceptor.accept(tcp_stream).await.unwrap()), service).await
             } else {
-                tokio_builder
-                    .serve_connection(TokioIo::new(tcp_stream), service)
-                    .await
+                tokio_builder.serve_connection(TokioIo::new(tcp_stream), service).await
             };
 
             if let Err(err) = result {

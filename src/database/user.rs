@@ -44,13 +44,7 @@ impl Database {
     }
 
     pub async fn get_user_from_username(&self, username: &str) -> Result<Option<UserId>> {
-        let rows = self
-            .get_postgres_client()
-            .query(
-                "SELECT user_id FROM users WHERE username = $1",
-                &[&username],
-            )
-            .await?;
+        let rows = self.get_postgres_client().query("SELECT user_id FROM users WHERE username = $1", &[&username]).await?;
         if rows.is_empty() {
             return Ok(None);
         }
@@ -61,11 +55,13 @@ impl Database {
         let hashed_password = hash(password, DEFAULT_COST)?;
 
         // create the user and return the user_id
-        let rows = self.get_postgres_client()
-                       .query(
-                           "INSERT INTO users (username, password, is_admin) VALUES ($1, $2, $3) RETURNING user_id",
-                           &[&username, &hashed_password, &is_admin],
-                       ).await?;
+        let rows = self
+            .get_postgres_client()
+            .query(
+                "INSERT INTO users (username, password, is_admin) VALUES ($1, $2, $3) RETURNING user_id",
+                &[&username, &hashed_password, &is_admin],
+            )
+            .await?;
 
         Ok(rows[0].get(0))
     }
@@ -74,25 +70,14 @@ impl Database {
         self.delete_all_tokens_for_user(user_id).await;
         self.remove_user_from_all_contests(user_id).await;
         self.delete_all_submissions_for_user(user_id).await;
-        self.get_postgres_client()
-            .execute("DELETE FROM users WHERE user_id = $1", &[&user_id])
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM users WHERE user_id = $1", &[&user_id]).await.unwrap();
     }
 
     pub async fn delete_all_tokens_for_user(&self, user_id: UserId) {
-        self.get_postgres_client()
-            .execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id])
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id]).await.unwrap();
     }
 
-    pub async fn add_user_override(
-        &self,
-        username: &str,
-        password: &str,
-        is_admin: bool,
-    ) -> Result<UserId> {
+    pub async fn add_user_override(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
         if let Some(user_id) = self.get_user_from_username(username).await? {
             self.delete_user(user_id).await;
         }
@@ -107,10 +92,7 @@ impl Database {
             None => return Ok(None),
         };
 
-        let hashed_password = self
-            .get_postgres_client()
-            .query("SELECT password FROM users WHERE user_id = $1", &[&user_id])
-            .await?;
+        let hashed_password = self.get_postgres_client().query("SELECT password FROM users WHERE user_id = $1", &[&user_id]).await?;
 
         if hashed_password.is_empty() {
             bail!("User does not have a password");
@@ -118,18 +100,11 @@ impl Database {
 
         let hashed_password = hashed_password[0].get(0);
 
-        Ok(if verify(password, hashed_password)? {
-            Some(user_id)
-        } else {
-            None
-        })
+        Ok(if verify(password, hashed_password)? { Some(user_id) } else { None })
     }
 
     pub async fn get_username(&self, user_id: UserId) -> Result<Option<String>> {
-        let rows = self
-            .get_postgres_client()
-            .query("SELECT username FROM users WHERE user_id = $1", &[&user_id])
-            .await?;
+        let rows = self.get_postgres_client().query("SELECT username FROM users WHERE user_id = $1", &[&user_id]).await?;
         if rows.is_empty() {
             return Ok(None);
         }
@@ -137,34 +112,21 @@ impl Database {
     }
 
     pub async fn add_token(&self, user_id: UserId) -> UserToken {
-        let token: UserToken = rand::thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(255)
-            .map(char::from)
-            .collect();
+        let token: UserToken = rand::thread_rng().sample_iter(&Alphanumeric).take(255).map(char::from).collect();
         let expiration_date = chrono::Utc::now() + TOKEN_EXPIRY;
         self.get_postgres_client()
-            .execute(
-                "INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)",
-                &[&token, &expiration_date, &user_id],
-            )
+            .execute("INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)", &[&token, &expiration_date, &user_id])
             .await
             .unwrap();
         token
     }
 
     pub async fn remove_token(&self, token: UserToken) {
-        self.get_postgres_client()
-            .execute("DELETE FROM tokens WHERE token = $1", &[&token])
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM tokens WHERE token = $1", &[&token]).await.unwrap();
     }
 
     pub async fn get_user_from_token(&self, token: UserToken) -> Result<Option<UserId>> {
-        let rows = self
-            .get_postgres_client()
-            .query("SELECT user_id FROM tokens WHERE token = $1", &[&token])
-            .await?;
+        let rows = self.get_postgres_client().query("SELECT user_id FROM tokens WHERE token = $1", &[&token]).await?;
         if rows.is_empty() {
             return Ok(None);
         }

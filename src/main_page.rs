@@ -14,10 +14,7 @@ pub struct MainSite {
     contests: Vec<(i32, String)>,
 }
 
-pub async fn create_main_page(
-    database: &Database,
-    user: Option<UserId>,
-) -> anyhow::Result<Response<Full<Bytes>>> {
+pub async fn create_main_page(database: &Database, user: Option<UserId>) -> anyhow::Result<Response<Full<Bytes>>> {
     let mut contests = Vec::new();
     if let Some(user) = user {
         for id in database.get_contests_for_user(user).await {

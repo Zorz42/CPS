@@ -21,11 +21,7 @@ impl Database {
         let username = args.get(1).ok_or(anyhow::anyhow!("no username argument"))?;
         let password = args.get(2).ok_or(anyhow::anyhow!("no password argument"))?;
         let host = args.get(3).ok_or(anyhow::anyhow!("no host argument"))?;
-        let (client, connection) = tokio_postgres::connect(
-            &format!("host={host} user={username} password={password} dbname={DB_NAME}"),
-            tokio_postgres::NoTls,
-        )
-            .await?;
+        let (client, connection) = tokio_postgres::connect(&format!("host={host} user={username} password={password} dbname={DB_NAME}"), tokio_postgres::NoTls).await?;
 
         // Spawn a new task to process the connection in the background.
         tokio::spawn(async move {
@@ -34,9 +30,7 @@ impl Database {
             }
         });
 
-        Ok(Database {
-            postgres_client: Arc::new(client),
-        })
+        Ok(Database { postgres_client: Arc::new(client) })
     }
 
     pub fn get_postgres_client(&self) -> &tokio_postgres::Client {

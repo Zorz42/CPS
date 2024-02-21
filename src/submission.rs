@@ -72,73 +72,45 @@ pub async fn handle_submission_form(
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
 
-    database
-        .add_submission(user_id.unwrap(), problem_id.parse().unwrap(), code, workers)
-        .await;
+    database.add_submission(user_id.unwrap(), problem_id.parse().unwrap(), code, workers).await;
 
     Ok(Some(create_html_response(RedirectSite {
         url: format!("/contest/{}/problem/{}", contest_id, problem_id),
     })?))
 }
 
-pub async fn create_submission_page(
-    database: &Database,
-    submission_id: &str,
-) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_submission_page(database: &Database, submission_id: &str) -> Result<Option<Response<Full<Bytes>>>> {
     if let Ok(submission_id) = submission_id.parse() {
         let code = database.get_submission_code(submission_id).await;
         let subtasks = database.get_subtasks_for_submission(submission_id).await;
         let mut subtask_vec = Vec::new();
         for subtask in subtasks {
-            let tests = database
-                .get_tests_for_subtask_in_submission(submission_id, subtask)
-                .await;
+            let tests = database.get_tests_for_subtask_in_submission(submission_id, subtask).await;
             let mut test_vec = Vec::new();
 
             for test in tests {
                 let time = database.get_test_time(submission_id, test).await;
 
-                let time_str = if let Some(time) = time {
-                    format!("{}ms", time)
-                } else {
-                    "".to_owned()
-                };
+                let time_str = if let Some(time) = time { format!("{}ms", time) } else { "".to_owned() };
 
-                test_vec.push((
-                    testing_result_to_string(database.get_test_result(submission_id, test).await),
-                    time_str,
-                ));
+                test_vec.push((testing_result_to_string(database.get_test_result(submission_id, test).await), time_str));
             }
 
-            let points = database
-                .get_subtask_points_result(submission_id, subtask)
-                .await;
+            let points = database.get_subtask_points_result(submission_id, subtask).await;
             let score_string = if let Some(points) = points {
-                format!(
-                    "{}/{}",
-                    points,
-                    database.get_subtask_total_points(subtask).await
-                )
+                format!("{}/{}", points, database.get_subtask_total_points(subtask).await)
             } else {
                 "".to_owned()
             };
 
-            subtask_vec.push((
-                score_string,
-                testing_result_to_string(database.get_subtask_result(submission_id, subtask).await),
-                test_vec,
-            ));
+            subtask_vec.push((score_string, testing_result_to_string(database.get_subtask_result(submission_id, subtask).await), test_vec));
         }
 
         let result = testing_result_to_string(database.get_submission_result(submission_id).await);
         let points = database.get_submission_points(submission_id).await;
         let problem = database.get_submission_problem(submission_id).await;
         let score = if let Some(points) = points {
-            format!(
-                "{}/{}",
-                points,
-                database.get_problem_total_points(problem).await
-            )
+            format!("{}/{}", points, database.get_problem_total_points(problem).await)
         } else {
             "".to_owned()
         };

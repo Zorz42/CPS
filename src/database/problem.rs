@@ -36,10 +36,7 @@ impl Database {
 
     pub async fn is_problem_id_valid(&self, problem_id: ProblemId) -> bool {
         self.get_postgres_client()
-            .query(
-                "SELECT problem_id FROM problems WHERE problem_id = $1",
-                &[&problem_id],
-            )
+            .query("SELECT problem_id FROM problems WHERE problem_id = $1", &[&problem_id])
             .await
             .ok()
             .map(|rows| !rows.is_empty())
@@ -48,10 +45,7 @@ impl Database {
 
     pub async fn get_problem_name(&self, problem_id: ProblemId) -> String {
         self.get_postgres_client()
-            .query(
-                "SELECT problem_name FROM problems WHERE problem_id = $1",
-                &[&problem_id],
-            )
+            .query("SELECT problem_name FROM problems WHERE problem_id = $1", &[&problem_id])
             .await
             .ok()
             .map(|rows| rows[0].get(0))
@@ -60,22 +54,14 @@ impl Database {
 
     pub async fn get_problems_for_contest(&self, contest_id: ContestId) -> Vec<ProblemId> {
         self.get_postgres_client()
-            .query(
-                "SELECT problem_id FROM contest_problems WHERE contest_id = $1",
-                &[&contest_id],
-            )
+            .query("SELECT problem_id FROM contest_problems WHERE contest_id = $1", &[&contest_id])
             .await
             .ok()
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
             .unwrap_or(Vec::new())
     }
 
-    pub async fn add_problem(
-        &self,
-        problem_name: &str,
-        problem_description: &str,
-        time_limit: i32,
-    ) -> ProblemId {
+    pub async fn add_problem(&self, problem_name: &str, problem_description: &str, time_limit: i32) -> ProblemId {
         self.get_postgres_client()
             .query(
                 "INSERT INTO problems (problem_name, problem_description, points, time_limit) VALUES ($1, $2, $3, $4) RETURNING problem_id",
@@ -83,71 +69,47 @@ impl Database {
             )
             .await
             .unwrap()
-            .get(0).unwrap()
+            .get(0)
+            .unwrap()
             .get(0)
     }
 
     pub async fn remove_problem(&self, problem_id: ProblemId) {
-        self.delete_all_subtasks_and_tests_for_problem(problem_id)
-            .await;
+        self.delete_all_subtasks_and_tests_for_problem(problem_id).await;
 
-        self.get_postgres_client()
-            .execute("DELETE FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM problems WHERE problem_id = $1", &[&problem_id]).await.unwrap();
     }
 
     pub async fn get_problem_id_from_name(&self, problem_name: &str) -> Option<ProblemId> {
         self.get_postgres_client()
-            .query(
-                "SELECT problem_id FROM problems WHERE problem_name = $1",
-                &[&problem_name],
-            )
+            .query("SELECT problem_id FROM problems WHERE problem_name = $1", &[&problem_name])
             .await
             .ok()
             .map(|rows| rows.get(0).map(|row| row.get(0)))
             .flatten()
     }
 
-    pub async fn add_problem_override(
-        &self,
-        problem_name: &str,
-        problem_description: &str,
-        time_limit: i32,
-    ) -> ProblemId {
+    pub async fn add_problem_override(&self, problem_name: &str, problem_description: &str, time_limit: i32) -> ProblemId {
         if let Some(problem_id) = self.get_problem_id_from_name(problem_name).await {
             self.remove_problem(problem_id).await;
         }
-        self.add_problem(problem_name, problem_description, time_limit)
-            .await
+        self.add_problem(problem_name, problem_description, time_limit).await
     }
 
     pub async fn add_problem_to_contest(&self, contest_id: ContestId, problem_id: ProblemId) {
         self.get_postgres_client()
-            .execute(
-                "INSERT INTO contest_problems (contest_id, problem_id) VALUES ($1, $2)",
-                &[&contest_id, &problem_id],
-            )
+            .execute("INSERT INTO contest_problems (contest_id, problem_id) VALUES ($1, $2)", &[&contest_id, &problem_id])
             .await
             .unwrap();
     }
 
     pub async fn remove_all_problems_from_contest(&self, contest_id: ContestId) {
-        self.get_postgres_client()
-            .execute(
-                "DELETE FROM contest_problems WHERE contest_id = $1",
-                &[&contest_id],
-            )
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM contest_problems WHERE contest_id = $1", &[&contest_id]).await.unwrap();
     }
 
     pub async fn get_problem_description(&self, problem_id: ProblemId) -> String {
         self.get_postgres_client()
-            .query(
-                "SELECT problem_description FROM problems WHERE problem_id = $1",
-                &[&problem_id],
-            )
+            .query("SELECT problem_description FROM problems WHERE problem_id = $1", &[&problem_id])
             .await
             .ok()
             .map(|rows| rows[0].get(0))
@@ -156,10 +118,7 @@ impl Database {
 
     pub async fn get_problem_total_points(&self, problem_id: ProblemId) -> i32 {
         self.get_postgres_client()
-            .query(
-                "SELECT points FROM problems WHERE problem_id = $1",
-                &[&problem_id],
-            )
+            .query("SELECT points FROM problems WHERE problem_id = $1", &[&problem_id])
             .await
             .ok()
             .map(|rows| rows[0].get(0))
@@ -168,10 +127,7 @@ impl Database {
 
     pub async fn get_problem_time_limit(&self, problem_id: ProblemId) -> i32 {
         self.get_postgres_client()
-            .query(
-                "SELECT time_limit FROM problems WHERE problem_id = $1",
-                &[&problem_id],
-            )
+            .query("SELECT time_limit FROM problems WHERE problem_id = $1", &[&problem_id])
             .await
             .ok()
             .map(|rows| rows[0].get(0))

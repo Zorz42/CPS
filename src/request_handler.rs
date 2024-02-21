@@ -25,24 +25,11 @@ pub struct RedirectSite {
 #[template(path = "not_found.html")]
 pub struct NotFoundSite;
 
-pub async fn handle_request(
-    request: Request<Incoming>,
-    database: Database,
-    workers: WorkerManager,
-) -> anyhow::Result<Response<Full<Bytes>>> {
+pub async fn handle_request(request: Request<Incoming>, database: Database, workers: WorkerManager) -> anyhow::Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request);
-    let user = if let Some(token) = &token {
-        database.get_user_from_token(token.clone()).await?
-    } else {
-        None
-    };
+    let user = if let Some(token) = &token { database.get_user_from_token(token.clone()).await? } else { None };
 
-    let mut parts = request
-        .uri()
-        .path()
-        .split('/')
-        .map(|x| x.to_owned())
-        .collect::<Vec<String>>();
+    let mut parts = request.uri().path().split('/').map(|x| x.to_owned()).collect::<Vec<String>>();
     parts.retain(|x| !x.is_empty());
 
     if request.method() == hyper::Method::POST {
@@ -54,15 +41,8 @@ pub async fn handle_request(
             return handle_logout_form(&database, token).await;
         }
 
-        if parts.len() == 5
-            && parts[0] == "contest"
-            && parts[2] == "problem"
-            && parts[4] == "submit_file"
-        {
-            if let Some(result) =
-                handle_submission_form(&database, user, &parts[1], &parts[3], request, &workers)
-                    .await?
-            {
+        if parts.len() == 5 && parts[0] == "contest" && parts[2] == "problem" && parts[4] == "submit_file" {
+            if let Some(result) = handle_submission_form(&database, user, &parts[1], &parts[3], request, &workers).await? {
                 return Ok(result);
             }
         }
@@ -84,17 +64,12 @@ pub async fn handle_request(
         }
 
         if parts.len() == 4 && parts[0] == "contest" && parts[2] == "problem" {
-            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await?
-            {
+            if let Some(result) = create_problem_page(&database, &parts[1], &parts[3], user).await? {
                 return Ok(result);
             }
         }
 
-        if parts.len() == 6
-            && parts[0] == "contest"
-            && parts[2] == "problem"
-            && parts[4] == "submission"
-        {
+        if parts.len() == 6 && parts[0] == "contest" && parts[2] == "problem" && parts[4] == "submission" {
             if let Some(result) = create_submission_page(&database, &parts[5]).await? {
                 return Ok(result);
             }

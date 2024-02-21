@@ -34,10 +34,7 @@ impl Database {
 
     pub async fn is_contest_id_valid(&self, contest_id: ContestId) -> bool {
         self.get_postgres_client()
-            .query(
-                "SELECT contest_id FROM contests WHERE contest_id = $1",
-                &[&contest_id],
-            )
+            .query("SELECT contest_id FROM contests WHERE contest_id = $1", &[&contest_id])
             .await
             .ok()
             .map(|rows| !rows.is_empty())
@@ -46,10 +43,7 @@ impl Database {
 
     pub async fn get_contest_name(&self, contest_id: ContestId) -> String {
         self.get_postgres_client()
-            .query(
-                "SELECT contest_name FROM contests WHERE contest_id = $1",
-                &[&contest_id],
-            )
+            .query("SELECT contest_name FROM contests WHERE contest_id = $1", &[&contest_id])
             .await
             .ok()
             .map(|rows| rows[0].get(0))
@@ -58,10 +52,7 @@ impl Database {
 
     pub async fn get_contests_for_user(&self, user_id: UserId) -> Vec<ContestId> {
         self.get_postgres_client()
-            .query(
-                "SELECT contest_id FROM contest_participations WHERE user_id = $1",
-                &[&user_id],
-            )
+            .query("SELECT contest_id FROM contest_participations WHERE user_id = $1", &[&user_id])
             .await
             .ok()
             .map(|rows| rows.iter().map(|row| row.get(0)).collect())
@@ -70,10 +61,7 @@ impl Database {
 
     pub async fn add_contest(&self, contest_name: &str) -> ContestId {
         self.get_postgres_client()
-            .query(
-                "INSERT INTO contests (contest_name) VALUES ($1) RETURNING contest_id",
-                &[&contest_name],
-            )
+            .query("INSERT INTO contests (contest_name) VALUES ($1) RETURNING contest_id", &[&contest_name])
             .await
             .unwrap()
             .get(0)
@@ -85,18 +73,12 @@ impl Database {
         self.remove_all_participations_for_contest(contest_id).await;
         self.remove_all_problems_from_contest(contest_id).await;
 
-        self.get_postgres_client()
-            .execute("DELETE FROM contests WHERE contest_id = $1", &[&contest_id])
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM contests WHERE contest_id = $1", &[&contest_id]).await.unwrap();
     }
 
     pub async fn remove_all_participations_for_contest(&self, contest_id: ContestId) {
         self.get_postgres_client()
-            .execute(
-                "DELETE FROM contest_participations WHERE contest_id = $1",
-                &[&contest_id],
-            )
+            .execute("DELETE FROM contest_participations WHERE contest_id = $1", &[&contest_id])
             .await
             .unwrap();
     }
@@ -104,10 +86,7 @@ impl Database {
     pub async fn get_contest_from_name(&self, contest_name: &str) -> Option<ContestId> {
         let rows = self
             .get_postgres_client()
-            .query(
-                "SELECT contest_id FROM contests WHERE contest_name = $1",
-                &[&contest_name],
-            )
+            .query("SELECT contest_id FROM contests WHERE contest_name = $1", &[&contest_name])
             .await
             .unwrap();
         if rows.is_empty() {
@@ -125,21 +104,12 @@ impl Database {
 
     pub async fn add_user_to_contest(&self, user_id: UserId, contest_id: ContestId) {
         self.get_postgres_client()
-            .execute(
-                "INSERT INTO contest_participations (contest_id, user_id) VALUES ($1, $2)",
-                &[&contest_id, &user_id],
-            )
+            .execute("INSERT INTO contest_participations (contest_id, user_id) VALUES ($1, $2)", &[&contest_id, &user_id])
             .await
             .unwrap();
     }
 
     pub async fn remove_user_from_all_contests(&self, user_id: UserId) {
-        self.get_postgres_client()
-            .execute(
-                "DELETE FROM contest_participations WHERE user_id = $1",
-                &[&user_id],
-            )
-            .await
-            .unwrap();
+        self.get_postgres_client().execute("DELETE FROM contest_participations WHERE user_id = $1", &[&user_id]).await.unwrap();
     }
 }
