@@ -1,4 +1,5 @@
 use crate::database::Database;
+use anyhow::anyhow;
 use anyhow::{bail, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use rand::distributions::Alphanumeric;
@@ -48,7 +49,7 @@ impl Database {
         if rows.is_empty() {
             return Ok(None);
         }
-        Ok(rows[0].get(0))
+        Ok(rows.first().ok_or_else(|| anyhow!("Error getting first row"))?.get(0))
     }
 
     pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
@@ -63,23 +64,26 @@ impl Database {
             )
             .await?;
 
-        Ok(rows[0].get(0))
+        Ok(rows.first().ok_or_else(|| anyhow!("Could not retrieve the first row"))?.get(0))
     }
 
-    pub async fn delete_user(&self, user_id: UserId) {
-        self.delete_all_tokens_for_user(user_id).await;
-        self.remove_user_from_all_contests(user_id).await;
+    pub async fn delete_user(&self, user_id: UserId) -> Result<()> {
+        self.delete_all_tokens_for_user(user_id).await?;
+        self.remove_user_from_all_contests(user_id).await?;
         self.delete_all_submissions_for_user(user_id).await;
-        self.get_postgres_client().execute("DELETE FROM users WHERE user_id = $1", &[&user_id]).await.unwrap();
+        self.get_postgres_client().execute("DELETE FROM users WHERE user_id = $1", &[&user_id]).await?;
+
+        Ok(())
     }
 
-    pub async fn delete_all_tokens_for_user(&self, user_id: UserId) {
-        self.get_postgres_client().execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id]).await.unwrap();
+    pub async fn delete_all_tokens_for_user(&self, user_id: UserId) -> Result<()> {
+        self.get_postgres_client().execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id]).await?;
+        Ok(())
     }
 
     pub async fn add_user_override(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
         if let Some(user_id) = self.get_user_from_username(username).await? {
-            self.delete_user(user_id).await;
+            self.delete_user(user_id).await?;
         }
 
         self.add_user(username, password, is_admin).await
@@ -87,9 +91,8 @@ impl Database {
 
     pub async fn try_login(&self, username: &str, password: &str) -> Result<Option<UserId>> {
         let user_id = self.get_user_from_username(username).await?;
-        let user_id = match user_id {
-            Some(user_id) => user_id,
-            None => return Ok(None),
+        let Some(user_id) = user_id else {
+            return Ok(None);
         };
 
         let hashed_password = self.get_postgres_client().query("SELECT password FROM users WHERE user_id = $1", &[&user_id]).await?;
@@ -98,9 +101,9 @@ impl Database {
             bail!("User does not have a password");
         }
 
-        let hashed_password = hashed_password[0].get(0);
+        let hashed_password = hashed_password.first().ok_or_else(|| anyhow!("Error getting the hashed password"))?.get(0);
 
-        Ok(if verify(password, hashed_password)? { Some(user_id) } else { None })
+        Ok(verify(password, hashed_password)?.then_some(user_id))
     }
 
     pub async fn get_username(&self, user_id: UserId) -> Result<Option<String>> {
@@ -108,7 +111,7 @@ impl Database {
         if rows.is_empty() {
             return Ok(None);
         }
-        Ok(Some(rows[0].get(0)))
+        Ok(Some(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0)))
     }
 
     pub async fn add_token(&self, user_id: UserId) -> Result<UserToken> {
@@ -120,8 +123,9 @@ impl Database {
         Ok(token)
     }
 
-    pub async fn remove_token(&self, token: UserToken) {
-        self.get_postgres_client().execute("DELETE FROM tokens WHERE token = $1", &[&token]).await.unwrap();
+    pub async fn remove_token(&self, token: UserToken) -> Result<()> {
+        self.get_postgres_client().execute("DELETE FROM tokens WHERE token = $1", &[&token]).await?;
+        Ok(())
     }
 
     pub async fn get_user_from_token(&self, token: UserToken) -> Result<Option<UserId>> {
@@ -129,7 +133,7 @@ impl Database {
         if rows.is_empty() {
             return Ok(None);
         }
-        Ok(Some(rows[0].get(0)))
+        Ok(Some(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0)))
     }
 }
 
@@ -143,9 +147,9 @@ pub fn parse_login_string(body: &str) -> (String, String) {
             continue;
         }
 
-        match parts[0] {
-            "username" => username = parts[1].to_string(),
-            "password" => password = parts[1].to_string(),
+        match *parts.first().unwrap_or(&"") {
+            "username" => username = (*parts.get(1).unwrap_or(&"")).to_owned(),
+            "password" => password = (*parts.get(1).unwrap_or(&"")).to_owned(),
             _ => {}
         }
     }
