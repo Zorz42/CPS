@@ -121,7 +121,7 @@ impl Database {
             .unwrap()
     }
 
-    pub async fn add_subtask(&self, problem_id: i32, subtask_score: i32) -> SubtaskId {
+    pub async fn add_subtask(&self, problem_id: ProblemId, subtask_score: i32) -> SubtaskId {
         // increment points of the problem
         self.get_postgres_client()
             .execute("UPDATE problems SET points = points + $2 WHERE problem_id = $1", &[&problem_id, &subtask_score])
@@ -137,7 +137,7 @@ impl Database {
             .get(0)
     }
 
-    pub async fn get_subtasks_for_problem(&self, problem_id: i32) -> Vec<SubtaskId> {
+    pub async fn get_subtasks_for_problem(&self, problem_id: ProblemId) -> Vec<SubtaskId> {
         self.get_postgres_client()
             .query("SELECT subtask_id FROM subtasks WHERE problem_id = $1", &[&problem_id])
             .await
@@ -154,7 +154,7 @@ impl Database {
             .unwrap();
     }
 
-    pub async fn delete_all_subtasks_and_tests_for_problem(&self, problem_id: i32) {
+    pub async fn delete_all_subtasks_and_tests_for_problem(&self, problem_id: ProblemId) {
         self.get_postgres_client()
             .execute("DELETE FROM subtask_tests WHERE subtask_id IN (SELECT subtask_id FROM subtasks WHERE problem_id = $1)", &[&problem_id])
             .await
@@ -165,7 +165,7 @@ impl Database {
         self.get_postgres_client().execute("DELETE FROM tests WHERE problem_id = $1", &[&problem_id]).await.unwrap();
     }
 
-    pub async fn get_all_tests_for_problem(&self, problem_id: i32) -> Vec<TestId> {
+    pub async fn get_all_tests_for_problem(&self, problem_id: ProblemId) -> Vec<TestId> {
         self.get_postgres_client()
             .query("SELECT test_id FROM tests WHERE problem_id = $1", &[&problem_id])
             .await
@@ -175,7 +175,7 @@ impl Database {
             .collect()
     }
 
-    pub async fn get_subtasks_for_submission(&self, submission_id: SubmissionId) -> Vec<i32> {
+    pub async fn get_subtasks_for_submission(&self, submission_id: SubmissionId) -> Vec<SubtaskId> {
         self.get_postgres_client()
             .query("SELECT subtask_id FROM subtask_results WHERE submission_id = $1", &[&submission_id])
             .await
@@ -185,7 +185,7 @@ impl Database {
             .collect()
     }
 
-    pub async fn get_tests_for_subtask_in_submission(&self, submission_id: SubmissionId, subtask_id: SubtaskId) -> Vec<i32> {
+    pub async fn get_tests_for_subtask_in_submission(&self, submission_id: SubmissionId, subtask_id: SubtaskId) -> Vec<TestId> {
         self.get_postgres_client()
             .query(
                 "SELECT test_id FROM test_results WHERE submission_id = $1 AND test_id IN (SELECT test_id FROM subtask_tests WHERE subtask_id = $2)",

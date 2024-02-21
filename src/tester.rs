@@ -1,6 +1,7 @@
 use crate::database::submission::TestingResult;
 use std::path::Path;
 use std::process::Stdio;
+use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
@@ -11,25 +12,23 @@ pub async fn execute_test(official_input: &str, official_output: &str, executabl
     let stdin = child.stdin.as_mut().unwrap();
     stdin.write_all(official_input.as_bytes()).await.unwrap();
 
-    let process = tokio::spawn(async move {
+    let process = tokio::spawn(tokio::time::timeout(Duration::from_millis(time_limit as u64), async move {
         let status = child.wait_with_output().await.unwrap();
         status
-    });
+    }));
 
-    while !process.is_finished() {
-        if start_time.elapsed().as_millis() > time_limit as u128 {
-            process.abort();
-            return (TestingResult::TimeLimitExceeded, time_limit);
-        }
+    let process = process.await;
+
+    if let Ok(Ok(output)) = process {
+        let output = String::from_utf8(output.stdout).unwrap();
+
+        let output = output.split_ascii_whitespace();
+        let official_output = official_output.split_ascii_whitespace();
+
+        let result = if output.eq(official_output) { TestingResult::Accepted } else { TestingResult::WrongAnswer };
+
+        (result, start_time.elapsed().as_millis() as i32)
+    } else {
+        (TestingResult::TimeLimitExceeded, time_limit)
     }
-
-    let output = process.await.unwrap();
-    let output = String::from_utf8(output.stdout).unwrap();
-
-    let output = output.split_ascii_whitespace();
-    let official_output = official_output.split_ascii_whitespace();
-
-    let result = if output.eq(official_output) { TestingResult::Accepted } else { TestingResult::WrongAnswer };
-
-    (result, 0)
 }

@@ -24,9 +24,9 @@ use tokio::net::TcpListener;
 // it will be later replaced by a database
 async fn init_temporary_data(database: &Database) {
     let admin_user = database.add_user_override("admin", "admin", true).await.unwrap();
-    let contest1 = database.add_contest_override("Contest 1").await;
+    let contest1 = database.add_contest_override("Contest 1").await.unwrap();
     let _contest2 = database.add_contest_override("Contest 2").await;
-    let contest10 = database.add_contest_override("Contest 10").await;
+    let contest10 = database.add_contest_override("Contest 10").await.unwrap();
     database.add_user_to_contest(admin_user, contest1).await;
     database.add_user_to_contest(admin_user, contest10).await;
 

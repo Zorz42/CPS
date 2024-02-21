@@ -127,7 +127,7 @@ impl WorkerManager {
 
         database.set_submission_result(submission_id, TestingResult::Testing).await;
         for subtask in database.get_subtasks_for_submission(submission_id).await {
-            database.set_submission_result(submission_id, TestingResult::Testing).await;
+            database.set_subtask_result(submission_id, subtask, TestingResult::Testing).await;
         }
 
         let tests = database.get_tests_for_submission(submission_id).await;

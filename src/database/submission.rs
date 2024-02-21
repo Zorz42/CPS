@@ -1,6 +1,7 @@
 use crate::database::problem::ProblemId;
 use crate::database::user::UserId;
 use crate::database::Database;
+use crate::database::test::SubtaskId;
 use crate::worker::WorkerManager;
 
 pub type SubmissionId = i32;
@@ -128,7 +129,7 @@ impl Database {
         submission_id
     }
 
-    async fn update_subtask_result(&self, submission_id: SubmissionId, subtask_id: i32) {
+    async fn update_subtask_result(&self, submission_id: SubmissionId, subtask_id: SubtaskId) {
         let tests = self.get_tests_for_subtask_in_submission(submission_id, subtask_id).await;
         let mut result = TestingResult::Accepted;
         for test in tests {
