@@ -132,7 +132,7 @@ impl Database {
     }
 
     async fn update_subtask_result(&self, submission_id: SubmissionId, subtask_id: SubtaskId) -> Result<()> {
-        let tests = self.get_tests_for_subtask_in_submission(submission_id, subtask_id).await?;
+        let tests = self.get_tests_for_subtask(subtask_id).await?;
         let mut result = TestingResult::Accepted;
         for test in tests {
             let test_result = self.get_test_result(submission_id, test).await?;

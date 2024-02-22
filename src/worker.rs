@@ -46,9 +46,9 @@ async fn worker(mut receiver: Receiver<(SubmissionId, TestId, PathBuf)>, queue_s
             let res = worker_do_test(&database, submission_id, test_id, &executable, &queue_size).await;
             if let Err(e) = res {
                 eprintln!("Error while testing: {e}");
+                database.set_test_result(submission_id, test_id, TestingResult::InternalError).await.ok();
+                // ignore errors
             }
-            database.set_test_result(submission_id, test_id, TestingResult::InternalError).await.ok();
-            // ignore errors
         }
     }
 }
@@ -96,7 +96,10 @@ async fn compile_code(code: &str) -> Result<PathBuf> {
     stdin.write_all(code.as_bytes()).await?;
     drop(stdin);
 
-    proc.wait_with_output().await?;
+    let output = proc.wait_with_output().await?;
+    if !output.status.success() {
+        return Err(anyhow::anyhow!("Compilation failed: {}", output.status));
+    }
 
     Ok(Path::new(&output_name).to_owned())
 }

@@ -169,19 +169,6 @@ impl Database {
             .collect())
     }
 
-    pub async fn get_tests_for_subtask_in_submission(&self, submission_id: SubmissionId, subtask_id: SubtaskId) -> Result<Vec<TestId>> {
-        Ok(self
-            .get_postgres_client()
-            .query(
-                "SELECT test_id FROM test_results WHERE submission_id = $1 AND test_id IN (SELECT test_id FROM subtask_tests WHERE subtask_id = $2)",
-                &[&submission_id, &subtask_id],
-            )
-            .await?
-            .iter()
-            .map(|row| row.get(0))
-            .collect())
-    }
-
     pub async fn get_test_result(&self, submission_id: SubmissionId, test_id: TestId) -> Result<TestingResult> {
         let result = self
             .get_postgres_client()

@@ -88,7 +88,7 @@ pub async fn create_submission_page(database: &Database, submission_id: &str) ->
         let subtasks = database.get_subtasks_for_submission(submission_id).await?;
         let mut subtask_vec = Vec::new();
         for subtask in subtasks {
-            let tests = database.get_tests_for_subtask_in_submission(submission_id, subtask).await?;
+            let tests = database.get_tests_for_subtask(subtask).await?;
             let mut test_vec = Vec::new();
 
             for test in tests {

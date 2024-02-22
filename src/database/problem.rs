@@ -53,13 +53,17 @@ impl Database {
     }
 
     pub async fn get_problems_for_contest(&self, contest_id: ContestId) -> Result<Vec<ProblemId>> {
-        Ok(self
+        let rows = self
             .get_postgres_client()
             .query("SELECT problem_id FROM contest_problems WHERE contest_id = $1", &[&contest_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No contest with id {}", contest_id))?
-            .get(0))
+            .await?;
+
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.get(0));
+        }
+
+        Ok(result)
     }
 
     pub async fn add_problem(&self, problem_name: &str, problem_description: &str, time_limit: i32) -> Result<ProblemId> {
