@@ -22,6 +22,7 @@ use tokio::net::TcpListener;
 
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
+#[allow(dead_code)]
 async fn init_temporary_data(database: &Database) -> Result<()> {
     let admin_user = database.add_user_override("admin", "admin", true).await?;
     let contest1 = database.add_contest_override("Contest 1").await?;
@@ -102,7 +103,7 @@ async fn main() -> Result<()> {
     database.init_tests().await?;
     // init_temporary_data(&database).await?; // this should be called once and then it stays in the database
 
-    let workers = WorkerManager::new(4, &database).await;
+    let workers = WorkerManager::new(4, &database);
 
     let server_config = get_server_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {

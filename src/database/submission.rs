@@ -17,6 +17,7 @@ pub enum TestingResult {
     RuntimeError,
     TimeLimitExceeded,
     MemoryLimitExceeded,
+    CompilationError,
     InternalError,
 }
 
@@ -31,7 +32,8 @@ pub const fn testing_result_to_i32(result: TestingResult) -> i32 {
         TestingResult::RuntimeError => 6,
         TestingResult::TimeLimitExceeded => 7,
         TestingResult::MemoryLimitExceeded => 8,
-        TestingResult::InternalError => 9,
+        TestingResult::CompilationError => 9,
+        TestingResult::InternalError => 10,
     }
 }
 
@@ -45,7 +47,8 @@ pub const fn i32_to_testing_result(result: i32) -> TestingResult {
         6 => TestingResult::RuntimeError,
         7 => TestingResult::TimeLimitExceeded,
         8 => TestingResult::MemoryLimitExceeded,
-        _ => TestingResult::InternalError, // 9 or anything else is an internal error
+        9 => TestingResult::CompilationError,
+        _ => TestingResult::InternalError, // 10 or anything else is an internal error
     }
 }
 
@@ -60,6 +63,7 @@ pub fn testing_result_to_string(result: TestingResult) -> String {
         TestingResult::RuntimeError => "Runtime Error".to_owned(),
         TestingResult::TimeLimitExceeded => "Time Limit Exceeded".to_owned(),
         TestingResult::MemoryLimitExceeded => "Memory Limit Exceeded".to_owned(),
+        TestingResult::CompilationError => "Compilation Error".to_owned(),
         TestingResult::InternalError => "Internal Error".to_owned(),
     }
 }
@@ -120,7 +124,8 @@ impl Database {
         let database = self.clone();
         let workers = workers.clone();
         tokio::spawn(async move {
-            workers.test_submission(submission_id, &database).await;
+            workers.test_submission(submission_id, &database).await?;
+            anyhow::Ok(())
         });
 
         Ok(submission_id)

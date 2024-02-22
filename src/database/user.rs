@@ -70,7 +70,7 @@ impl Database {
     pub async fn delete_user(&self, user_id: UserId) -> Result<()> {
         self.delete_all_tokens_for_user(user_id).await?;
         self.remove_user_from_all_contests(user_id).await?;
-        self.delete_all_submissions_for_user(user_id).await;
+        self.delete_all_submissions_for_user(user_id).await?;
         self.get_postgres_client().execute("DELETE FROM users WHERE user_id = $1", &[&user_id]).await?;
 
         Ok(())

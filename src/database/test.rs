@@ -100,19 +100,9 @@ impl Database {
     pub async fn get_test_data(&self, test_id: TestId) -> Result<(String, String)> {
         let column = self.get_postgres_client().query("SELECT input_data, output_data FROM tests WHERE test_id = $1", &[&test_id]).await?;
 
-        let row = column.get(0).ok_or_else(|| anyhow::anyhow!("No test with id {}", test_id))?;
+        let row = column.first().ok_or_else(|| anyhow::anyhow!("No test with id {}", test_id))?;
 
         Ok((row.get(0), row.get(1)))
-    }
-
-    pub async fn get_subtask_score(&self, subtask_id: SubtaskId) -> Result<i32> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT subtask_score FROM subtasks WHERE subtask_id = $1", &[&subtask_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No subtask with id {}", subtask_id))?
-            .get(0))
     }
 
     pub async fn add_subtask(&self, problem_id: ProblemId, subtask_score: i32) -> Result<SubtaskId> {
@@ -197,7 +187,7 @@ impl Database {
             .get_postgres_client()
             .query("SELECT result FROM test_results WHERE submission_id = $1 AND test_id = $2", &[&submission_id, &test_id])
             .await?
-            .get(0)
+            .first()
             .ok_or_else(|| anyhow::anyhow!("No test result for submission {} and test {}", submission_id, test_id))?
             .get(0);
 
@@ -250,7 +240,9 @@ impl Database {
             .get_postgres_client()
             .query("SELECT points FROM subtask_results WHERE submission_id = $1 AND subtask_id = $2", &[&submission_id, &subtask_id])
             .await?;
-        let row = column.get(0).unwrap();
+        let row = column
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No subtask result for submission {} and subtask {}", submission_id, subtask_id))?;
 
         Ok(row.try_get(0).ok())
     }
@@ -260,7 +252,7 @@ impl Database {
             .get_postgres_client()
             .query("SELECT subtask_score FROM subtasks WHERE subtask_id = $1", &[&subtask_id])
             .await?
-            .get(0)
+            .first()
             .ok_or_else(|| anyhow::anyhow!("No subtask with id {}", subtask_id))?
             .get(0))
     }
@@ -270,7 +262,7 @@ impl Database {
             .get_postgres_client()
             .query("SELECT time FROM test_results WHERE submission_id = $1 AND test_id = $2", &[&submission_id, &test_id])
             .await?;
-        let row = column.get(0).unwrap();
+        let row = column.first().ok_or_else(|| anyhow::anyhow!("No test result for submission {} and test {}", submission_id, test_id))?;
 
         Ok(row.try_get(0).ok())
     }
