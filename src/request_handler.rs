@@ -54,6 +54,14 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             return create_main_page(&database, user).await;
         }
 
+        if parts == ["css", "sidebar.css"] {
+            return Ok(Response::new(Full::new(include_bytes!("../templates/css/sidebar.css").to_vec().into())));
+        }
+
+        if parts == ["img", "logo.png"] {
+            return Ok(Response::new(Full::new(include_bytes!("../templates/img/logo.png").to_vec().into())));
+        }
+
         // if the path is ["login"], we are at the login page
         if parts == ["login"] {
             return create_login_page();
