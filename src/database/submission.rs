@@ -1,7 +1,7 @@
 use crate::database::problem::ProblemId;
 use crate::database::test::SubtaskId;
 use crate::database::user::UserId;
-use crate::database::Database;
+use crate::database::{Database, DatabaseQuery};
 use crate::worker::WorkerManager;
 use anyhow::{anyhow, Result};
 
@@ -88,37 +88,27 @@ impl Database {
     }
 
     pub async fn add_submission(&self, user_id: UserId, problem_id: ProblemId, code: String, workers: &WorkerManager) -> Result<SubmissionId> {
-        let submission_id = self
-            .get_postgres_client()
-            .query(
-                "INSERT INTO submissions (user_id, problem_id, code, result, tests_done) VALUES ($1, $2, $3, $4, $5) RETURNING submission_id",
-                &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue), &0],
-            )
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO submissions (user_id, problem_id, code, result, tests_done) VALUES ($1, $2, $3, $4, $5) RETURNING submission_id");
+        static SUBTASK_QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO subtask_results (submission_id, subtask_id, result) VALUES ($1, $2, $3)");
+        static TEST_QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO test_results (submission_id, test_id, result) VALUES ($1, $2, $3)");
+
+        let submission_id = QUERY
+            .execute(self, &[&user_id, &problem_id, &code, &testing_result_to_i32(TestingResult::InQueue), &0])
             .await?
             .first()
-            .ok_or_else(|| anyhow!("Could not retrieve the first row"))?
+            .ok_or_else(|| anyhow!("No submission id returned"))?
             .get(0);
 
         // add all subtasks for the problem
         let subtasks = self.get_subtasks_for_problem(problem_id).await?;
         for subtask in subtasks {
-            self.get_postgres_client()
-                .execute(
-                    "INSERT INTO subtask_results (submission_id, subtask_id, result) VALUES ($1, $2, $3)",
-                    &[&submission_id, &subtask, &testing_result_to_i32(TestingResult::InQueue)],
-                )
-                .await?;
+            SUBTASK_QUERY.execute(self, &[&submission_id, &subtask, &testing_result_to_i32(TestingResult::InQueue)]).await?;
         }
 
         // add all tests for the problem
         let tests = self.get_all_tests_for_problem(problem_id).await?;
         for test in tests {
-            self.get_postgres_client()
-                .execute(
-                    "INSERT INTO test_results (submission_id, test_id, result) VALUES ($1, $2, $3)",
-                    &[&submission_id, &test, &testing_result_to_i32(TestingResult::InQueue)],
-                )
-                .await?;
+            TEST_QUERY.execute(self, &[&submission_id, &test, &testing_result_to_i32(TestingResult::InQueue)]).await?;
         }
 
         let database = self.clone();
@@ -132,6 +122,9 @@ impl Database {
     }
 
     async fn update_subtask_result(&self, submission_id: SubmissionId, subtask_id: SubtaskId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE subtask_results SET result = $1 WHERE submission_id = $2 AND subtask_id = $3");
+        static POINTS_QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE subtask_results SET points = $1 WHERE submission_id = $2 AND subtask_id = $3");
+
         let tests = self.get_tests_for_subtask(subtask_id).await?;
         let mut result = TestingResult::Accepted;
         for test in tests {
@@ -141,26 +134,18 @@ impl Database {
             }
         }
 
-        self.get_postgres_client()
-            .execute(
-                "UPDATE subtask_results SET result = $1 WHERE submission_id = $2 AND subtask_id = $3",
-                &[&testing_result_to_i32(result), &submission_id, &subtask_id],
-            )
-            .await?;
+        QUERY.execute(self, &[&testing_result_to_i32(result), &submission_id, &subtask_id]).await?;
 
         let points = if result == TestingResult::Accepted { self.get_subtask_total_points(subtask_id).await? } else { 0 };
 
-        self.get_postgres_client()
-            .execute(
-                "UPDATE subtask_results SET points = $1 WHERE submission_id = $2 AND subtask_id = $3",
-                &[&points, &submission_id, &subtask_id],
-            )
-            .await?;
+        POINTS_QUERY.execute(self, &[&points, &submission_id, &subtask_id]).await?;
 
         Ok(())
     }
 
     pub async fn update_submission_result(&self, submission_id: SubmissionId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE submissions SET result = $1, points = $2 WHERE submission_id = $3");
+
         let subtasks = self.get_subtasks_for_submission(submission_id).await?;
         let mut result = TestingResult::Accepted;
         let mut points = 0;
@@ -173,51 +158,40 @@ impl Database {
             points += self.get_subtask_points_result(submission_id, subtask).await?.unwrap_or(0);
         }
 
-        self.get_postgres_client()
-            .execute("UPDATE submissions SET result = $1 WHERE submission_id = $2", &[&testing_result_to_i32(result), &submission_id])
-            .await?;
-
-        self.get_postgres_client()
-            .execute("UPDATE submissions SET points = $1 WHERE submission_id = $2", &[&points, &submission_id])
-            .await?;
+        QUERY.execute(self, &[&testing_result_to_i32(result), &points, &submission_id]).await?;
 
         Ok(())
     }
 
     pub async fn get_submissions_by_user_for_problem(&self, user_id: UserId, problem_id: ProblemId) -> Result<Vec<SubmissionId>> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT submission_id FROM submissions WHERE user_id = $1 AND problem_id = $2", &[&user_id, &problem_id])
-            .await?
-            .iter()
-            .map(|row| row.get(0))
-            .collect())
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT submission_id FROM submissions WHERE user_id = $1 AND problem_id = $2");
+
+        Ok(QUERY.execute(self, &[&user_id, &problem_id]).await?.iter().map(|row| row.get(0)).collect())
     }
 
     pub async fn get_all_submissions_for_user(&self, user_id: UserId) -> Result<Vec<SubmissionId>> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT submission_id FROM submissions WHERE user_id = $1", &[&user_id])
-            .await?
-            .iter()
-            .map(|row| row.get(0))
-            .collect())
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT submission_id FROM submissions WHERE user_id = $1");
+
+        Ok(QUERY.execute(self, &[&user_id]).await?.iter().map(|row| row.get(0)).collect())
     }
 
     pub async fn delete_all_submissions_for_user(&self, user_id: UserId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM submissions WHERE user_id = $1");
+
         for submission in self.get_all_submissions_for_user(user_id).await? {
             self.delete_all_results_for_submission(submission).await?;
         }
 
-        self.get_postgres_client().execute("DELETE FROM submissions WHERE user_id = $1", &[&user_id]).await?;
+        QUERY.execute(self, &[&user_id]).await?;
 
         Ok(())
     }
 
     pub async fn get_submission_code(&self, submission_id: SubmissionId) -> Result<String> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT code FROM submissions WHERE submission_id = $1", &[&submission_id])
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT code FROM submissions WHERE submission_id = $1");
+
+        Ok(QUERY
+            .execute(self, &[&submission_id])
             .await?
             .first()
             .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
@@ -225,9 +199,11 @@ impl Database {
     }
 
     pub async fn get_submission_result(&self, submission_id: SubmissionId) -> Result<TestingResult> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT result FROM submissions WHERE submission_id = $1");
+
         Ok(i32_to_testing_result(
-            self.get_postgres_client()
-                .query("SELECT result FROM submissions WHERE submission_id = $1", &[&submission_id])
+            QUERY
+                .execute(self, &[&submission_id])
                 .await?
                 .first()
                 .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
@@ -236,9 +212,10 @@ impl Database {
     }
 
     pub async fn get_submission_tests_done(&self, submission_id: SubmissionId) -> Result<i32> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT tests_done FROM submissions WHERE submission_id = $1", &[&submission_id])
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT tests_done FROM submissions WHERE submission_id = $1");
+
+        Ok(QUERY
+            .execute(self, &[&submission_id])
             .await?
             .first()
             .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
@@ -246,14 +223,16 @@ impl Database {
     }
 
     pub async fn increment_submission_tests_done(&self, submission_id: SubmissionId) -> Result<()> {
-        self.get_postgres_client()
-            .execute("UPDATE submissions SET tests_done = tests_done + 1 WHERE submission_id = $1", &[&submission_id])
-            .await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE submissions SET tests_done = tests_done + 1 WHERE submission_id = $1");
+
+        QUERY.execute(self, &[&submission_id]).await?;
         Ok(())
     }
 
     pub async fn get_submission_points(&self, submission_id: SubmissionId) -> Result<Option<i32>> {
-        let column = self.get_postgres_client().query("SELECT points FROM submissions WHERE submission_id = $1", &[&submission_id]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT points FROM submissions WHERE submission_id = $1");
+
+        let column = QUERY.execute(self, &[&submission_id]).await?;
 
         let row = column.first().ok_or_else(|| anyhow!("No submission with id {}", submission_id))?;
 
@@ -261,9 +240,10 @@ impl Database {
     }
 
     pub async fn get_submission_problem(&self, submission_id: SubmissionId) -> Result<ProblemId> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT problem_id FROM submissions WHERE submission_id = $1", &[&submission_id])
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_id FROM submissions WHERE submission_id = $1");
+
+        Ok(QUERY
+            .execute(self, &[&submission_id])
             .await?
             .first()
             .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
@@ -271,9 +251,9 @@ impl Database {
     }
 
     pub async fn set_submission_result(&self, submission_id: SubmissionId, result: TestingResult) -> Result<()> {
-        self.get_postgres_client()
-            .execute("UPDATE submissions SET result = $1 WHERE submission_id = $2", &[&testing_result_to_i32(result), &submission_id])
-            .await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE submissions SET result = $1 WHERE submission_id = $2");
+
+        QUERY.execute(self, &[&testing_result_to_i32(result), &submission_id]).await?;
         Ok(())
     }
 }

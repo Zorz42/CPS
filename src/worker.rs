@@ -33,6 +33,8 @@ async fn worker_do_test(database: &Database, submission_id: SubmissionId, test_i
     let total_tests = database.get_tests_for_submission(submission_id).await?.len() as i32;
     if tests_done == total_tests {
         database.update_submission_result(submission_id).await?;
+        // delete the executable if it exists
+        tokio::fs::remove_file(executable).await.ok();
     }
 
     Ok(())

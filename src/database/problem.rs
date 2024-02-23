@@ -1,5 +1,5 @@
 use crate::database::contest::ContestId;
-use crate::database::Database;
+use crate::database::{Database, DatabaseQuery};
 use anyhow::{anyhow, Result};
 
 pub type ProblemId = i32;
@@ -35,28 +35,21 @@ impl Database {
     }
 
     pub async fn is_problem_id_valid(&self, problem_id: ProblemId) -> bool {
-        self.get_postgres_client()
-            .query("SELECT problem_id FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await
-            .ok()
-            .is_some_and(|rows| !rows.is_empty())
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_id FROM problems WHERE problem_id = $1");
+
+        QUERY.execute(self, &[&problem_id]).await.ok().is_some_and(|rows| !rows.is_empty())
     }
 
     pub async fn get_problem_name(&self, problem_id: ProblemId) -> Result<String> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT problem_name FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No problem with id {}", problem_id))?
-            .get(0))
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_name FROM problems WHERE problem_id = $1");
+
+        Ok(QUERY.execute(self, &[&problem_id]).await?.first().ok_or_else(|| anyhow!("No problem with id {}", problem_id))?.get(0))
     }
 
     pub async fn get_problems_for_contest(&self, contest_id: ContestId) -> Result<Vec<ProblemId>> {
-        let rows = self
-            .get_postgres_client()
-            .query("SELECT problem_id FROM contest_problems WHERE contest_id = $1", &[&contest_id])
-            .await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_id FROM contest_problems WHERE contest_id = $1");
+
+        let rows = QUERY.execute(self, &[&contest_id]).await?;
 
         let mut result = Vec::new();
         for row in rows {
@@ -67,12 +60,10 @@ impl Database {
     }
 
     pub async fn add_problem(&self, problem_name: &str, problem_description: &str, time_limit: i32) -> Result<ProblemId> {
-        Ok(self
-            .get_postgres_client()
-            .query(
-                "INSERT INTO problems (problem_name, problem_description, points, time_limit) VALUES ($1, $2, $3, $4) RETURNING problem_id",
-                &[&problem_name, &problem_description, &0, &time_limit],
-            )
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO problems (problem_name, problem_description, points, time_limit) VALUES ($1, $2, $3, $4) RETURNING problem_id");
+
+        Ok(QUERY
+            .execute(self, &[&problem_name, &problem_description, &0, &time_limit])
             .await?
             .first()
             .ok_or_else(|| anyhow!("Could not retrieve the first row"))?
@@ -80,20 +71,23 @@ impl Database {
     }
 
     pub async fn remove_problem(&self, problem_id: ProblemId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM problems WHERE problem_id = $1");
+
         self.delete_all_subtasks_and_tests_for_problem(problem_id).await?;
 
-        self.get_postgres_client().execute("DELETE FROM problems WHERE problem_id = $1", &[&problem_id]).await?;
+        QUERY.execute(self, &[&problem_id]).await?;
 
         Ok(())
     }
 
     pub async fn get_problem_id_from_name(&self, problem_name: &str) -> Result<ProblemId> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT problem_id FROM problems WHERE problem_name = $1", &[&problem_name])
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_id FROM problems WHERE problem_name = $1");
+
+        Ok(QUERY
+            .execute(self, &[&problem_name])
             .await?
             .first()
-            .ok_or_else(|| anyhow::anyhow!("No problem with name {}", problem_name))?
+            .ok_or_else(|| anyhow!("No problem with name {}", problem_name))?
             .get(0))
     }
 
@@ -105,44 +99,34 @@ impl Database {
     }
 
     pub async fn add_problem_to_contest(&self, contest_id: ContestId, problem_id: ProblemId) -> Result<()> {
-        self.get_postgres_client()
-            .execute("INSERT INTO contest_problems (contest_id, problem_id) VALUES ($1, $2)", &[&contest_id, &problem_id])
-            .await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO contest_problems (contest_id, problem_id) VALUES ($1, $2)");
+
+        QUERY.execute(self, &[&contest_id, &problem_id]).await?;
         Ok(())
     }
 
     pub async fn remove_all_problems_from_contest(&self, contest_id: ContestId) -> Result<()> {
-        self.get_postgres_client().execute("DELETE FROM contest_problems WHERE contest_id = $1", &[&contest_id]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM contest_problems WHERE contest_id = $1");
+
+        QUERY.execute(self, &[&contest_id]).await?;
         Ok(())
     }
 
     pub async fn get_problem_description(&self, problem_id: ProblemId) -> Result<String> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT problem_description FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No problem with id {}", problem_id))?
-            .get(0))
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_description FROM problems WHERE problem_id = $1");
+
+        Ok(QUERY.execute(self, &[&problem_id]).await?.first().ok_or_else(|| anyhow!("No problem with id {}", problem_id))?.get(0))
     }
 
     pub async fn get_problem_total_points(&self, problem_id: ProblemId) -> Result<i32> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT points FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No problem with id {}", problem_id))?
-            .get(0))
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT points FROM problems WHERE problem_id = $1");
+
+        Ok(QUERY.execute(self, &[&problem_id]).await?.first().ok_or_else(|| anyhow!("No problem with id {}", problem_id))?.get(0))
     }
 
     pub async fn get_problem_time_limit(&self, problem_id: ProblemId) -> Result<i32> {
-        Ok(self
-            .get_postgres_client()
-            .query("SELECT time_limit FROM problems WHERE problem_id = $1", &[&problem_id])
-            .await?
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No problem with id {}", problem_id))?
-            .get(0))
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT time_limit FROM problems WHERE problem_id = $1");
+
+        Ok(QUERY.execute(self, &[&problem_id]).await?.first().ok_or_else(|| anyhow!("No problem with id {}", problem_id))?.get(0))
     }
 }

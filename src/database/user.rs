@@ -1,4 +1,4 @@
-use crate::database::Database;
+use crate::database::{Database, DatabaseQuery};
 use anyhow::anyhow;
 use anyhow::{bail, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
@@ -45,7 +45,9 @@ impl Database {
     }
 
     pub async fn get_user_from_username(&self, username: &str) -> Result<Option<UserId>> {
-        let rows = self.get_postgres_client().query("SELECT user_id FROM users WHERE username = $1", &[&username]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT user_id FROM users WHERE username = $1");
+
+        let rows = QUERY.execute(self, &[&username]).await?;
         if rows.is_empty() {
             return Ok(None);
         }
@@ -53,31 +55,30 @@ impl Database {
     }
 
     pub async fn add_user(&self, username: &str, password: &str, is_admin: bool) -> Result<UserId> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO users (username, password, is_admin) VALUES ($1, $2, $3) RETURNING user_id");
+
         let hashed_password = hash(password, DEFAULT_COST)?;
 
         // create the user and return the user_id
-        let rows = self
-            .get_postgres_client()
-            .query(
-                "INSERT INTO users (username, password, is_admin) VALUES ($1, $2, $3) RETURNING user_id",
-                &[&username, &hashed_password, &is_admin],
-            )
-            .await?;
+        let rows = QUERY.execute(self, &[&username, &hashed_password, &is_admin]).await?;
 
         Ok(rows.first().ok_or_else(|| anyhow!("Could not retrieve the first row"))?.get(0))
     }
 
     pub async fn delete_user(&self, user_id: UserId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM users WHERE user_id = $1");
+
         self.delete_all_tokens_for_user(user_id).await?;
         self.remove_user_from_all_contests(user_id).await?;
         self.delete_all_submissions_for_user(user_id).await?;
-        self.get_postgres_client().execute("DELETE FROM users WHERE user_id = $1", &[&user_id]).await?;
+        QUERY.execute(self, &[&user_id]).await?;
 
         Ok(())
     }
 
     pub async fn delete_all_tokens_for_user(&self, user_id: UserId) -> Result<()> {
-        self.get_postgres_client().execute("DELETE FROM tokens WHERE user_id = $1", &[&user_id]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM tokens WHERE user_id = $1");
+        QUERY.execute(self, &[&user_id]).await?;
         Ok(())
     }
 
@@ -90,12 +91,14 @@ impl Database {
     }
 
     pub async fn try_login(&self, username: &str, password: &str) -> Result<Option<UserId>> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT password FROM users WHERE username = $1");
+
         let user_id = self.get_user_from_username(username).await?;
         let Some(user_id) = user_id else {
             return Ok(None);
         };
 
-        let hashed_password = self.get_postgres_client().query("SELECT password FROM users WHERE user_id = $1", &[&user_id]).await?;
+        let hashed_password = QUERY.execute(self, &[&user_id]).await?;
 
         if hashed_password.is_empty() {
             bail!("User does not have a password");
@@ -107,7 +110,9 @@ impl Database {
     }
 
     pub async fn get_username(&self, user_id: UserId) -> Result<Option<String>> {
-        let rows = self.get_postgres_client().query("SELECT username FROM users WHERE user_id = $1", &[&user_id]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT username FROM users WHERE user_id = $1");
+
+        let rows = QUERY.execute(self, &[&user_id]).await?;
         if rows.is_empty() {
             return Ok(None);
         }
@@ -115,21 +120,25 @@ impl Database {
     }
 
     pub async fn add_token(&self, user_id: UserId) -> Result<UserToken> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)");
+
         let token: UserToken = rand::thread_rng().sample_iter(&Alphanumeric).take(255).map(char::from).collect();
         let expiration_date = chrono::Utc::now() + TOKEN_EXPIRY;
-        self.get_postgres_client()
-            .execute("INSERT INTO tokens (token, expiration_date, user_id) VALUES ($1, $2, $3)", &[&token, &expiration_date, &user_id])
-            .await?;
+        QUERY.execute(self, &[&token, &expiration_date, &user_id]).await?;
         Ok(token)
     }
 
     pub async fn remove_token(&self, token: UserToken) -> Result<()> {
-        self.get_postgres_client().execute("DELETE FROM tokens WHERE token = $1", &[&token]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM tokens WHERE token = $1");
+
+        QUERY.execute(self, &[&token]).await?;
         Ok(())
     }
 
     pub async fn get_user_from_token(&self, token: UserToken) -> Result<Option<UserId>> {
-        let rows = self.get_postgres_client().query("SELECT user_id FROM tokens WHERE token = $1", &[&token]).await?;
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT user_id FROM tokens WHERE token = $1");
+
+        let rows = QUERY.execute(self, &[&token]).await?;
         if rows.is_empty() {
             return Ok(None);
         }

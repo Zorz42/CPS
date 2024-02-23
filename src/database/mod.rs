@@ -6,7 +6,9 @@ pub mod user;
 
 use anyhow::Result;
 use std::env;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use tokio_postgres::types::ToSql;
+use tokio_postgres::{Row, Statement};
 
 const DB_NAME: &str = "cps";
 
@@ -35,5 +37,31 @@ impl Database {
 
     pub fn get_postgres_client(&self) -> &tokio_postgres::Client {
         &self.postgres_client
+    }
+}
+
+/// this is a struct that is static and holds a prepared query to the database
+pub struct DatabaseQuery {
+    query: &'static str,
+    prepared: OnceLock<Statement>,
+}
+
+impl DatabaseQuery {
+    pub const fn new(query: &'static str) -> Self {
+        Self { query, prepared: OnceLock::new() }
+    }
+
+    async fn get_query(&self, database: &Database) -> Result<Statement> {
+        if let Some(prepared) = self.prepared.get() {
+            return Ok(prepared.clone());
+        }
+
+        let prepared = database.get_postgres_client().prepare(self.query).await?;
+        Ok(self.prepared.get_or_init(|| prepared.clone()).clone())
+    }
+
+    pub async fn execute(&self, database: &Database, params: &[&(dyn ToSql + Sync)]) -> Result<Vec<Row>> {
+        let query = self.get_query(database).await?;
+        Ok(database.get_postgres_client().query(&query, params).await?)
     }
 }
