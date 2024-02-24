@@ -1,7 +1,9 @@
 use crate::database::contest::ContestId;
 use crate::database::problem::ProblemId;
+use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::create_html_response;
+use crate::sidebar::{create_sidebar_context, SidebarContext};
 use anyhow::Result;
 use askama::Template;
 use http_body_util::Full;
@@ -13,9 +15,10 @@ use hyper::Response;
 pub struct ContestSite {
     contest_id: ContestId,
     problems: Vec<(ProblemId, String)>,
+    sidebar_context: SidebarContext,
 }
 
-pub async fn create_contest_page(database: &Database, contest_id: &str) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_contest_page(database: &Database, contest_id: &str, user: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
     if let Ok(contest_id) = contest_id.parse::<i32>() {
         if database.is_contest_id_valid(contest_id).await {
             let mut problems = Vec::new();
@@ -23,7 +26,11 @@ pub async fn create_contest_page(database: &Database, contest_id: &str) -> Resul
                 problems.push((problem_id, database.get_problem_name(problem_id).await?.clone()));
             }
 
-            return Ok(Some(create_html_response(&ContestSite { contest_id, problems })?));
+            return Ok(Some(create_html_response(&ContestSite {
+                contest_id,
+                problems,
+                sidebar_context: create_sidebar_context(database, user).await?,
+            })?));
         }
     }
     Ok(None)

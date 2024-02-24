@@ -4,23 +4,29 @@
 </head>
 
 <body>
-<h1>{{ problem_name }}</h1>
-<p>
-    {{ problem_description }}
-</p>
 
-<h2>Submit a solution</h2>
-<form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
-    <label for="file">File</label>
-    <input id="file" name="file" type="file"/>
-    <button>Submit</button>
-</form>
+{%- include "sidebar.html" -%}
 
-{%- for (submission_id, score) in submissions %}
-<p>
-    <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/">Submission {{ submission_id }} </a> {{ score }}
-</p>
-{%- endfor -%}
+<div>
+    <h1>{{ problem_name }}</h1>
+    <p>
+        {{ problem_description }}
+    </p>
+
+    <h2>Submit a solution</h2>
+    <form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
+        <label for="file">File</label>
+        <input id="file" name="file" type="file"/>
+        <button>Submit</button>
+    </form>
+
+    {%- for (submission_id, score) in submissions %}
+    <p>
+        <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/">Submission {{ submission_id }} </a> {{ score }}
+    </p>
+    {%- endfor -%}
+
+</div>
 
 </body>
 

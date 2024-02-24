@@ -1,11 +1,11 @@
-<link rel="stylesheet" href="css/sidebar.css">
+<link rel="stylesheet" href="/css/sidebar.css">
 
 <div id="sidebar-div">
-    <img src="img/logo.png" width="100px" height="100px">
+    <img src="/img/logo.png" width="100px" height="100px">
     <br>
 
-    {%- if logged_in -%}
-    <p>Logged in as {{ username }}</p>
+    {%- if sidebar_context.logged_in -%}
+    <p>Logged in as {{ sidebar_context.username }}</p>
     <form action="logout" method="post">
         <input type="submit" value="Logout">
     </form>
@@ -16,11 +16,11 @@
 
     {%- endif -%}
 
-    {%- if logged_in -%}
+    {%- if sidebar_context.logged_in -%}
     <h3>Available Contests</h3>
 
     <ul>
-        {%- for (id, name, problems) in contests -%}
+        {%- for (id, name, problems) in sidebar_context.contests -%}
         <li><a href="/contest/{{ id }}">{{ name }}</a>
             {%- if !problems.is_empty() -%}
             <ul>

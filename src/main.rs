@@ -3,6 +3,7 @@ mod database;
 mod main_page;
 mod problem;
 mod request_handler;
+mod sidebar;
 mod submission;
 mod tester;
 mod user;

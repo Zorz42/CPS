@@ -2,6 +2,7 @@ use crate::database::submission::testing_result_to_string;
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
+use crate::sidebar::{create_sidebar_context, SidebarContext};
 use crate::worker::WorkerManager;
 use anyhow::{anyhow, Result};
 use askama::Template;
@@ -18,6 +19,7 @@ pub struct SubmissionSite {
     subtasks: Vec<(String, String, Vec<(String, String)>)>,
     result: String,
     score: String,
+    sidebar_context: SidebarContext,
 }
 
 async fn extract_file_from_request(request: Request<Incoming>) -> Result<String> {
@@ -82,7 +84,7 @@ pub async fn handle_submission_form(
     })?))
 }
 
-pub async fn create_submission_page(database: &Database, submission_id: &str) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_submission_page(database: &Database, submission_id: &str, user: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
     if let Ok(submission_id) = submission_id.parse() {
         let code = database.get_submission_code(submission_id).await?;
         let subtasks = database.get_subtasks_for_submission(submission_id).await?;
@@ -123,6 +125,7 @@ pub async fn create_submission_page(database: &Database, submission_id: &str) ->
             subtasks: subtask_vec,
             result,
             score,
+            sidebar_context: create_sidebar_context(database, user).await?,
         })?));
     }
 

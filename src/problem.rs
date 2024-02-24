@@ -4,6 +4,7 @@ use crate::database::submission::SubmissionId;
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::create_html_response;
+use crate::sidebar::{create_sidebar_context, SidebarContext};
 use anyhow::Result;
 use askama::Template;
 use http_body_util::Full;
@@ -18,6 +19,7 @@ pub struct ProblemSite {
     problem_name: String,
     problem_description: String,
     submissions: Vec<(SubmissionId, String)>,
+    sidebar_context: SidebarContext,
 }
 
 pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
@@ -53,6 +55,7 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
             problem_description,
             problem_name: database.get_problem_name(problem_id).await?,
             submissions,
+            sidebar_context: create_sidebar_context(database, user_id).await?,
         })?));
     }
 

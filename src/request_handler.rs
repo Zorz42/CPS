@@ -68,7 +68,7 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
         }
 
         if parts.len() == 2 && parts.first().unwrap_or(&"") == &"contest" {
-            if let Some(result) = create_contest_page(&database, parts.get(1).unwrap_or(&"")).await? {
+            if let Some(result) = create_contest_page(&database, parts.get(1).unwrap_or(&""), user).await? {
                 return Ok(result);
             }
         }
@@ -80,7 +80,7 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
         }
 
         if parts.len() == 6 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submission" {
-            if let Some(result) = create_submission_page(&database, parts.get(5).unwrap_or(&"")).await? {
+            if let Some(result) = create_submission_page(&database, parts.get(5).unwrap_or(&""), user).await? {
                 return Ok(result);
             }
         }
