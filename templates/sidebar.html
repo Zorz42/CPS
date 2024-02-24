@@ -5,10 +5,12 @@
     <br>
 
     {%- if sidebar_context.logged_in -%}
-    <p>Logged in as {{ sidebar_context.username }}</p>
-    <form action="/logout" method="post">
-        <input type="submit" value="Logout">
-    </form>
+    <div id="sidebar-login-div">
+        Logged in as {{ sidebar_context.username }}
+        <form action="/logout" method="post">
+            <input type="submit" value="Logout">
+        </form>
+    </div>
 
     {%- else -%}
 
@@ -17,21 +19,27 @@
     {%- endif -%}
 
     {%- if sidebar_context.logged_in -%}
+    <br>
     <h3>Available Contests</h3>
 
-    <ul>
+    <div class="sidebar-items">
         {%- for (id, name, problems) in sidebar_context.contests -%}
-        <li><a href="/contest/{{ id }}">{{ name }}</a>
+        <div>
+            <a href="/contest/{{ id }}">
+                <div class="sidebar-contest-wrapper">{{ name }}</div>
+            </a>
             {%- if !problems.is_empty() -%}
-            <ul>
+            <div class="sidebar-problems-wrapper">
                 {%- for (problem_id, problem_name) in problems -%}
-                <li><a href="/contest/{{ id }}/problem/{{ problem_id }}">{{ problem_name }}</a></li>
+                <a href="/contest/{{ id }}/problem/{{ problem_id }}">
+                    <div class="sidebar-problem-wrapper">{{ problem_name }}</div>
+                </a>
                 {%- endfor -%}
-            </ul>
+            </div>
             {%- endif -%}
-        </li>
+        </div>
         {%- endfor -%}
-    </ul>
+    </div>
 
     {%- endif -%}
 

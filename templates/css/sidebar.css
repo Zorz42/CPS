@@ -2,6 +2,7 @@ body {
     display: flex;
     padding: 0;
     margin: 0;
+    font-family: Arial, sans-serif;
 }
 
 #sidebar-div {
@@ -14,4 +15,40 @@ body {
 
 #sidebar-spacer {
     width: 360px;
+}
+
+.sidebar-items {
+    margin: 0;
+    padding: 10px;
+}
+
+.sidebar-items a {
+    text-decoration: none;
+    color: black;
+}
+
+.sidebar-problems-wrapper {
+    margin: 10px 0 40px;
+    padding-left: 10px;
+}
+
+.sidebar-contest-wrapper, .sidebar-problem-wrapper {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+}
+
+.sidebar-contest-wrapper:hover, .sidebar-problem-wrapper:hover {
+    background-color: lightgray;
+}
+
+.sidebar-contest-wrapper {
+    margin-right: 20px;
+}
+
+#sidebar-login-div {
+    display: flex;
+    margin-top: 20px;
+    justify-content: space-around;
 }
