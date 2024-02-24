@@ -34,9 +34,10 @@ body {
 
 .sidebar-contest-wrapper, .sidebar-problem-wrapper {
     margin: 10px 0;
-    padding: 10px;
     background-color: #f0f0f0;
     border-radius: 10px;
+    padding: 10px;
+    display: flex;
 }
 
 .sidebar-contest-wrapper:hover, .sidebar-problem-wrapper:hover {
@@ -51,4 +52,8 @@ body {
     display: flex;
     margin-top: 20px;
     justify-content: space-around;
+}
+
+svg {
+    margin-right: 10px;
 }
