@@ -2,4 +2,39 @@
 
 <div id="sidebar-div">
     <img src="img/logo.png" width="100px" height="100px">
+    <br>
+
+    {%- if logged_in -%}
+    <p>Logged in as {{ username }}</p>
+    <form action="logout" method="post">
+        <input type="submit" value="Logout">
+    </form>
+
+    {%- else -%}
+
+    <a href="/login">Login</a>
+
+    {%- endif -%}
+
+    {%- if logged_in -%}
+    <h3>Available Contests</h3>
+
+    <ul>
+        {%- for (id, name, problems) in contests -%}
+        <li><a href="/contest/{{ id }}">{{ name }}</a>
+            {%- if !problems.is_empty() -%}
+            <ul>
+                {%- for (problem_id, problem_name) in problems -%}
+                <li><a href="/contest/{{ id }}/problem/{{ problem_id }}">{{ problem_name }}</a></li>
+                {%- endfor -%}
+            </ul>
+            {%- endif -%}
+        </li>
+        {%- endfor -%}
+    </ul>
+
+    {%- endif -%}
+
 </div>
+
+<div id="sidebar-spacer"></div>

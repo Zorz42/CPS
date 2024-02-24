@@ -1,3 +1,5 @@
+use crate::database::contest::ContestId;
+use crate::database::problem::ProblemId;
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::create_html_response;
@@ -12,14 +14,14 @@ use hyper::Response;
 pub struct MainSite {
     logged_in: bool,
     username: String,
-    contests: Vec<(i32, String)>,
+    contests: Vec<(ContestId, String, Vec<(ProblemId, String)>)>,
 }
 
 pub async fn create_main_page(database: &Database, user: Option<UserId>) -> Result<Response<Full<Bytes>>> {
     let mut contests = Vec::new();
     if let Some(user) = user {
         for id in database.get_contests_for_user(user).await? {
-            contests.push((id, database.get_contest_name(id).await?));
+            contests.push((id, database.get_contest_name(id).await?, Vec::new()));
         }
     }
 

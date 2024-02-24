@@ -5,32 +5,11 @@
 </head>
 
 <body>
+{%- include "sidebar.html" -%}
 
-<div style="display: flex">
-    {%- include "sidebar.html" -%}
-
-    <div>
-        <h1>Home</h1>
-        <p>Welcome to our home page!</p>
-
-        {%- if logged_in -%}
-
-        <p>Welcome, {{ username }}!</p>
-        <form action="logout" method="post">
-            <input type="submit" value="Logout">
-        </form>
-
-        {%- else -%}
-
-        <a href="/login">Login</a>
-
-        {%- endif -%}
-
-        <h2>Contests</h2>
-        {%- for (id, name) in contests -%}
-        <a href="/contest/{{ id }}">{{ name }}</a><br>
-        {%- endfor -%}
-    </div>
+<div>
+    <h1>Home</h1>
+    <p>Welcome to our home page!</p>
 
 </div>
 

@@ -91,7 +91,7 @@ impl Database {
     }
 
     pub async fn try_login(&self, username: &str, password: &str) -> Result<Option<UserId>> {
-        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT password FROM users WHERE username = $1");
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT password FROM users WHERE user_id = $1");
 
         let user_id = self.get_user_from_username(username).await?;
         let Some(user_id) = user_id else {

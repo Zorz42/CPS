@@ -1,5 +1,17 @@
+body {
+    display: flex;
+    padding: 0;
+    margin: 0;
+}
+
 #sidebar-div {
-    align-self: flex-start;
     width: 300px;
-    height: 100%;
+    height: 100vh;
+    border-right: dimgrey 1px solid;
+    position: fixed;
+    padding: 20px;
+}
+
+#sidebar-spacer {
+    width: 360px;
 }
