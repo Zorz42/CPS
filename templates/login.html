@@ -1,19 +1,19 @@
 <html>
-    <head>
-        <title>Login</title>
-    </head>
+<head>
+    <title>Login</title>
+</head>
 
-    <body>
-        <h1>Login</h1>
-        <p style="color:red;">{{ error_message }}</p>
-        <form action="login" method="post">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" autocomplete="username" required>
-            <br>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" autocomplete="current-password" required>
-            <br>
-            <input type="submit" value="Login">
-        </form>
-    </body>
+<body>
+<h1>Login</h1>
+<p style="color:red;">{{ error_message }}</p>
+<form action="/login" method="post">
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username" autocomplete="username" required>
+    <br>
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
+    <br>
+    <input type="submit" value="Login">
+</form>
+</body>
 </html>

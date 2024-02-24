@@ -12,7 +12,7 @@ use hyper::{Request, Response};
 #[derive(Template)]
 #[template(path = "login.html")]
 pub struct LoginSite {
-    error_message: String,
+    pub error_message: String,
 }
 
 pub fn get_login_token(request: &Request<Incoming>) -> Result<Option<UserToken>> {

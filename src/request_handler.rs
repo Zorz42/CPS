@@ -3,7 +3,7 @@ use crate::database::Database;
 use crate::main_page::create_main_page;
 use crate::problem::create_problem_page;
 use crate::submission::{create_submission_page, handle_submission_form};
-use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form};
+use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form, LoginSite};
 use crate::worker::WorkerManager;
 use anyhow::Result;
 use askama::Template;
@@ -39,6 +39,12 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             return handle_login_form(&database, request).await;
         }
 
+        if user.is_none() {
+            return create_html_response(&LoginSite {
+                error_message: "You must be logged in to perform this action".to_owned(),
+            });
+        }
+
         if parts == ["logout"] {
             return handle_logout_form(&database, token).await;
         }
@@ -65,6 +71,12 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
         // if the path is ["login"], we are at the login page
         if parts == ["login"] {
             return create_login_page();
+        }
+
+        if user.is_none() {
+            return create_html_response(&LoginSite {
+                error_message: "You must be logged in to perform this action".to_owned(),
+            });
         }
 
         if parts.len() == 2 && parts.first().unwrap_or(&"") == &"contest" {

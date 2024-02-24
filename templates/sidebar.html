@@ -6,7 +6,7 @@
 
     {%- if sidebar_context.logged_in -%}
     <p>Logged in as {{ sidebar_context.username }}</p>
-    <form action="logout" method="post">
+    <form action="/logout" method="post">
         <input type="submit" value="Logout">
     </form>
 
