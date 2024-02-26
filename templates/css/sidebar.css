@@ -7,14 +7,12 @@ body {
 
 #sidebar-div {
     width: 300px;
+    min-width: 300px;
     height: 100vh;
     border-right: dimgrey 1px solid;
-    position: fixed;
-    padding: 20px;
-}
-
-#sidebar-spacer {
-    width: 360px;
+    position: sticky;
+    top: 0;
+    padding: 0 20px 0 20px;
 }
 
 .sidebar-items {
@@ -38,6 +36,7 @@ body {
     border-radius: 10px;
     padding: 10px;
     display: flex;
+    transition: 0.3s;
 }
 
 .sidebar-contest-wrapper:hover, .sidebar-problem-wrapper:hover {
@@ -56,4 +55,10 @@ body {
 
 svg {
     margin-right: 10px;
+}
+
+#logo {
+    width: 100px;
+    height: 100px;
+    margin: 20px 0 20px 0;
 }

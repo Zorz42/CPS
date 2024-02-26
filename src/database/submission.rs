@@ -68,6 +68,45 @@ pub fn testing_result_to_string(result: TestingResult) -> String {
     }
 }
 
+pub fn testing_result_to_short_string(result: TestingResult) -> String {
+    match result {
+        TestingResult::InQueue => "In Queue".to_owned(),
+        TestingResult::Compiling => "Compiling".to_owned(),
+        TestingResult::Testing => "Testing".to_owned(),
+        TestingResult::Accepted => "OK".to_owned(),
+        TestingResult::WrongAnswer => "WA".to_owned(),
+        TestingResult::RuntimeError => "RE".to_owned(),
+        TestingResult::TimeLimitExceeded => "TLE".to_owned(),
+        TestingResult::MemoryLimitExceeded => "MLE".to_owned(),
+        TestingResult::CompilationError => "Compilation Error".to_owned(),
+        TestingResult::InternalError => "IE".to_owned(),
+    }
+}
+
+pub const fn merge_two_testing_results(a: TestingResult, b: TestingResult) -> TestingResult {
+    match (a, b) {
+        (TestingResult::InQueue, _) => a,
+        (_, TestingResult::InQueue) => b,
+        (TestingResult::Compiling, _) => a,
+        (_, TestingResult::Compiling) => b,
+        (TestingResult::Testing, _) => a,
+        (_, TestingResult::Testing) => b,
+        (TestingResult::CompilationError, _) => a,
+        (_, TestingResult::CompilationError) => b,
+        (TestingResult::InternalError, _) => a,
+        (_, TestingResult::InternalError) => b,
+        (TestingResult::Accepted, TestingResult::Accepted) => TestingResult::Accepted,
+        (TestingResult::RuntimeError, _) => a,
+        (_, TestingResult::RuntimeError) => b,
+        (TestingResult::WrongAnswer, _) => a,
+        (_, TestingResult::WrongAnswer) => b,
+        (TestingResult::TimeLimitExceeded, _) => a,
+        (_, TestingResult::TimeLimitExceeded) => b,
+        (TestingResult::MemoryLimitExceeded, _) => a,
+        (_, TestingResult::MemoryLimitExceeded) => b,
+    }
+}
+
 impl Database {
     pub async fn init_submissions(&self) -> Result<()> {
         self.get_postgres_client()
@@ -129,9 +168,7 @@ impl Database {
         let mut result = TestingResult::Accepted;
         for test in tests {
             let test_result = self.get_test_result(submission_id, test).await?;
-            if test_result != TestingResult::Accepted {
-                result = test_result;
-            }
+            result = merge_two_testing_results(result, test_result);
         }
 
         QUERY.execute(self, &[&testing_result_to_i32(result), &submission_id, &subtask_id]).await?;
@@ -152,9 +189,7 @@ impl Database {
         for subtask in subtasks {
             self.update_subtask_result(submission_id, subtask).await?;
             let subtask_result = self.get_subtask_result(submission_id, subtask).await?;
-            if subtask_result != TestingResult::Accepted {
-                result = subtask_result;
-            }
+            result = merge_two_testing_results(result, subtask_result);
             points += self.get_subtask_points_result(submission_id, subtask).await?.unwrap_or(0);
         }
 

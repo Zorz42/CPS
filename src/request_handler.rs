@@ -64,6 +64,14 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             return Ok(Response::new(Full::new(include_bytes!("../templates/css/sidebar.css").to_vec().into())));
         }
 
+        if parts == ["css", "big_score.css"] {
+            return Ok(Response::new(Full::new(include_bytes!("../templates/css/big_score.css").to_vec().into())));
+        }
+
+        if parts == ["css", "problem.css"] {
+            return Ok(Response::new(Full::new(include_bytes!("../templates/css/problem.css").to_vec().into())));
+        }
+
         if parts == ["img", "logo.png"] {
             return Ok(Response::new(Full::new(include_bytes!("../templates/img/logo.png").to_vec().into())));
         }

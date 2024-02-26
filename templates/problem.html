@@ -1,13 +1,14 @@
 <html>
 <head>
     <title>Problem</title>
+    <link rel="stylesheet" href="/css/problem.css">
 </head>
 
 <body>
 
-{%- include "sidebar.html" -%}
+{% include "sidebar.html" %}
 
-<div>
+<div id="problems-wrapper">
     <h1>{{ problem_name }}</h1>
     <p>
         {{ problem_description }}
@@ -20,11 +21,13 @@
         <button>Submit</button>
     </form>
 
-    {%- for (submission_id, score) in submissions %}
-    <p>
-        <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/">Submission {{ submission_id }} </a> {{ score }}
-    </p>
-    {%- endfor -%}
+    {% for (submission_id, points, max_points, hide_score, message) in submissions %}
+    <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/" class="submission-href">
+        <div class="submission">
+            Submission {{ submission_id }} {% include "big_score.html" %}
+        </div>
+    </a>
+    {% endfor %}
 
 </div>
 

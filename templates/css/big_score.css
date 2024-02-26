@@ -1,0 +1,28 @@
+.big-score-wrapper {
+    margin: 10px 10px 10px 30px;
+    height: 30px;
+    width: 200px;
+    min-width: 200px;
+    background-color: darkgrey;
+    border-radius: 10px;
+}
+
+.big-score-bar {
+    height: 30px;
+    border-radius: 10px;
+    position: absolute;
+    z-index: 0;
+}
+
+.big-score-text {
+    z-index: 1;
+}
+
+.big-score-text-wrapper {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 200px;
+    height: 30px;
+}

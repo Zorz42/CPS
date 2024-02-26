@@ -1,6 +1,6 @@
 use crate::database::contest::ContestId;
 use crate::database::problem::ProblemId;
-use crate::database::submission::SubmissionId;
+use crate::database::submission::{testing_result_to_short_string, SubmissionId, TestingResult};
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::create_html_response;
@@ -18,7 +18,7 @@ pub struct ProblemSite {
     problem_id: ProblemId,
     problem_name: String,
     problem_description: String,
-    submissions: Vec<(SubmissionId, String)>,
+    submissions: Vec<(SubmissionId, i32, i32, bool, String)>,
     sidebar_context: SidebarContext,
 }
 
@@ -32,20 +32,25 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
             return Ok(None);
         }
 
-        let submissions = if let Some(user_id) = user_id {
+        let mut submissions = if let Some(user_id) = user_id {
             let mut res = Vec::new();
             for id in database.get_submissions_by_user_for_problem(user_id, problem_id).await? {
                 let total_points = database.get_problem_total_points(problem_id).await?;
-                let score = database
-                    .get_submission_points(id)
-                    .await?
-                    .map_or_else(|| "Testing...".to_owned(), |points| format!("{points}/{total_points}"));
-                res.push((id, score));
+                let points = database.get_submission_points(id).await?.unwrap_or(0);
+                let result = database.get_submission_result(id).await?;
+                let message = testing_result_to_short_string(result);
+
+                let hide_score = result == TestingResult::InQueue || result == TestingResult::Testing || result == TestingResult::CompilationError || result == TestingResult::Compiling;
+
+                res.push((id, points, total_points, hide_score, message));
             }
             res
         } else {
             Vec::new()
         };
+
+        // Sort by submission id in descending order
+        submissions.sort_by(|a, b| b.0.cmp(&a.0));
 
         let problem_description = database.get_problem_description(problem_id).await?;
 

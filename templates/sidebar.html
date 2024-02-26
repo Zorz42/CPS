@@ -1,10 +1,10 @@
 <link rel="stylesheet" href="/css/sidebar.css">
 
 <div id="sidebar-div">
-    <a href="/"><img src="/img/logo.png" width="100px" height="100px"></a>
+    <a href="/"><img src="/img/logo.png" id="logo"></a>
     <br>
 
-    {%- if sidebar_context.logged_in -%}
+    {% if sidebar_context.logged_in %}
     <div id="sidebar-login-div">
         Logged in as {{ sidebar_context.username }}
         <form action="/logout" method="post">
@@ -12,18 +12,18 @@
         </form>
     </div>
 
-    {%- else -%}
+    {% else %}
 
     <a href="/login">Login</a>
 
-    {%- endif -%}
+    {% endif %}
 
-    {%- if sidebar_context.logged_in -%}
+    {% if sidebar_context.logged_in %}
     <br>
     <h3>Available Contests</h3>
 
     <div class="sidebar-items">
-        {%- for (id, name, problems) in sidebar_context.contests -%}
+        {% for (id, name, problems) in sidebar_context.contests %}
         <div>
             <a href="/contest/{{ id }}">
                 <div class="sidebar-contest-wrapper">
@@ -33,9 +33,9 @@
                     <div>{{ name }}</div>
                 </div>
             </a>
-            {%- if !problems.is_empty() -%}
+            {% if !problems.is_empty() %}
             <div class="sidebar-problems-wrapper">
-                {%- for (problem_id, problem_name) in problems -%}
+                {% for (problem_id, problem_name) in problems %}
                 <a href="/contest/{{ id }}/problem/{{ problem_id }}">
                     <div class="sidebar-problem-wrapper">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text" viewBox="0 0 16 16">
@@ -45,15 +45,13 @@
                         <div>{{ problem_name }}</div>
                     </div>
                 </a>
-                {%- endfor -%}
+                {% endfor %}
             </div>
-            {%- endif -%}
+            {% endif %}
         </div>
-        {%- endfor -%}
+        {% endfor %}
     </div>
 
-    {%- endif -%}
+    {% endif %}
 
 </div>
-
-<div id="sidebar-spacer"></div>

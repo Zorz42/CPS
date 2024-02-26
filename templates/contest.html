@@ -6,14 +6,14 @@
 
 <body>
 
-{%- include "sidebar.html" -%}
+{% include "sidebar.html" %}
 <div>
 
     <h2>Problems</h2>
-    {%- for (id, name) in problems -%}
+    {% for (id, name) in problems %}
     <a href="/contest/{{ contest_id }}/problem/{{ id }}">{{ name }}</a><br>
-    {%- endfor -%}
-    
+    {% endfor %}
+
 </div>
 </body>
 
