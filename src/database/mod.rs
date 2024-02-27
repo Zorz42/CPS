@@ -23,8 +23,9 @@ impl Database {
         let username = args.get(1).ok_or_else(|| anyhow::anyhow!("no username argument"))?;
         let password = args.get(2).ok_or_else(|| anyhow::anyhow!("no password argument"))?;
         let host = args.get(3).ok_or_else(|| anyhow::anyhow!("no host argument"))?;
+        println!("connecting to database \"{host}\" with username \"{username}\" and password \"{password}\"");
         let (client, connection) = tokio_postgres::connect(&format!("host={host} user={username} password={password} dbname={DB_NAME}"), tokio_postgres::NoTls).await?;
-
+        
         // Spawn a new task to process the connection in the background.
         tokio::spawn(async move {
             if let Err(e) = connection.await {

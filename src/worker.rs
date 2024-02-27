@@ -90,6 +90,7 @@ async fn compile_code(code: &str) -> Result<PathBuf> {
         .arg("-x")
         .arg("c++")
         .arg("-")
+        .arg("-DONLINE_JUDGE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
