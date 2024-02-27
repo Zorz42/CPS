@@ -42,7 +42,7 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
 
                 let hide_score = result == TestingResult::InQueue || result == TestingResult::Testing || result == TestingResult::CompilationError || result == TestingResult::Compiling;
 
-                res.push((id, points, total_points, hide_score, message));
+                res.push((id, points, total_points.max(1), hide_score, message));
             }
             res
         } else {
