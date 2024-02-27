@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="/css/big_score.css">
 
+{% macro big_score(points, max_points, hide_score, message) -%}
+
 <div class="big-score-wrapper">
     <div class="big-score-text-wrapper">
         <p class="big-score-text">
@@ -12,3 +14,5 @@
 
     <div class="big-score-bar" style="background-color: rgb({{ (max_points - points) * 600 / max_points }}, {{ points * 400 / max_points }}, 0); width: {{ points * 200 / max_points }}px;"></div>
 </div>
+
+{%- endmacro -%}
