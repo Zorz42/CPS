@@ -14,19 +14,23 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 const BUFFER_SIZE: usize = 255;
 
-async fn worker_do_test(database: &Database, submission_id: SubmissionId, test_id: TestId, executable: &Path, queue_size: &Arc<AtomicI32>) -> Result<()> {
+async fn worker_do_test(database: &Database, submission_id: SubmissionId, test_id: TestId, executable: &Path, worker_id: i32) -> Result<()> {
     database.set_test_result(submission_id, test_id, TestingResult::Testing).await?;
 
     let (input, expected_output) = database.get_test_data(test_id).await?;
     let problem = database.get_submission_problem(submission_id).await?;
     let time_limit = database.get_problem_time_limit(problem).await?;
 
-    let (result, time) = execute_test(&input, &expected_output, executable, time_limit).await?;
+    let (result, time) = execute_test(&input, &expected_output, executable, time_limit, worker_id).await?;
 
     database.set_test_result(submission_id, test_id, result).await?;
 
     database.set_test_time(submission_id, test_id, time).await?;
 
+    Ok(())
+}
+
+async fn worker_test_is_done(database: &Database, submission_id: SubmissionId, executable: &Path, queue_size: &Arc<AtomicI32>) -> Result<()> {
     queue_size.fetch_sub(1, Ordering::SeqCst);
     database.increment_submission_tests_done(submission_id).await?;
     let tests_done = database.get_submission_tests_done(submission_id).await?;
@@ -36,33 +40,33 @@ async fn worker_do_test(database: &Database, submission_id: SubmissionId, test_i
         // delete the executable if it exists
         tokio::fs::remove_file(executable).await.ok();
     }
-
     Ok(())
 }
 
-async fn worker(mut receiver: Receiver<(SubmissionId, TestId, PathBuf)>, queue_size: Arc<AtomicI32>, database: Database) -> ! {
+async fn worker(mut receiver: Receiver<(SubmissionId, TestId, PathBuf)>, queue_size: Arc<AtomicI32>, database: Database, worker_id: i32) -> ! {
     loop {
         if let Some((submission_id, test_id, executable)) = receiver.recv().await {
             // execute the test
 
-            let res = worker_do_test(&database, submission_id, test_id, &executable, &queue_size).await;
+            let res = worker_do_test(&database, submission_id, test_id, &executable, worker_id).await;
             if let Err(e) = res {
                 eprintln!("Error while testing: {e}");
                 database.set_test_result(submission_id, test_id, TestingResult::InternalError).await.ok();
                 // ignore errors
             }
+            worker_test_is_done(&database, submission_id, &executable, &queue_size).await.ok();
         }
     }
 }
 
-fn spawn_worker(database: &Database) -> (Sender<(SubmissionId, TestId, PathBuf)>, Arc<AtomicI32>) {
+fn spawn_worker(database: &Database, worker_id: i32) -> (Sender<(SubmissionId, TestId, PathBuf)>, Arc<AtomicI32>) {
     let (sender, receiver) = mpsc::channel(BUFFER_SIZE);
     let queue_size = Arc::new(AtomicI32::new(0));
     let queue_size_clone = queue_size.clone();
 
     let database = database.clone();
     tokio::spawn(async move {
-        worker(receiver, queue_size_clone, database).await;
+        worker(receiver, queue_size_clone, database, worker_id).await;
     });
 
     (sender, queue_size)
@@ -116,8 +120,8 @@ pub struct WorkerManager {
 impl WorkerManager {
     pub fn new(worker_count: usize, database: &Database) -> Self {
         let mut workers = Vec::new();
-        for _ in 0..worker_count {
-            workers.push(spawn_worker(database));
+        for worker_id in 0..worker_count {
+            workers.push(spawn_worker(database, worker_id as i32));
         }
         Self { workers: Arc::new(workers) }
     }
@@ -125,11 +129,11 @@ impl WorkerManager {
     async fn execute_test(&self, submission_id: SubmissionId, test_id: TestId, executable: PathBuf) -> Result<()> {
         let mut min_queue_size = i32::MAX;
         let mut min_queue_index = 0;
-        for (_sender, queue_size) in self.workers.iter() {
+        for (i, (_sender, queue_size)) in self.workers.iter().enumerate() {
             let queue_size = queue_size.load(Ordering::SeqCst);
             if queue_size < min_queue_size {
                 min_queue_size = queue_size;
-                min_queue_index += 1;
+                min_queue_index = i;
             }
         }
 

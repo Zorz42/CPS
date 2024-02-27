@@ -104,7 +104,7 @@ async fn main() -> Result<()> {
     database.init_tests().await?;
     // init_temporary_data(&database).await?; // this should be called once and then it stays in the database
 
-    let workers = WorkerManager::new(4, &database);
+    let workers = WorkerManager::new(32, &database);
 
     let server_config = get_server_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
