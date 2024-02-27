@@ -59,31 +59,23 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
         if parts.is_empty() {
             return create_main_page(&database, user).await;
         }
-
-        if parts == ["css", "sidebar.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/sidebar.css").to_vec().into())));
+        
+        if parts.len() == 2 && parts.first().unwrap_or(&"") == &"css" {
+            let res = match *parts.get(1).unwrap_or(&"") {
+                "main.css" => Some(include_bytes!("../templates/css/main.css").to_vec()),
+                "sidebar.css" => Some(include_bytes!("../templates/css/sidebar.css").to_vec()),
+                "big_score.css" => Some(include_bytes!("../templates/css/big_score.css").to_vec()),
+                "problem.css" => Some(include_bytes!("../templates/css/problem.css").to_vec()),
+                "contest.css" => Some(include_bytes!("../templates/css/contest.css").to_vec()),
+                "submission.css" => Some(include_bytes!("../templates/css/submission.css").to_vec()),
+                _ => None,
+            };
+            
+            if let Some(res) = res {
+                return Ok(Response::new(Full::new(res.into())));
+            }
         }
-
-        if parts == ["css", "big_score.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/big_score.css").to_vec().into())));
-        }
-
-        if parts == ["css", "problem.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/problem.css").to_vec().into())));
-        }
-
-        if parts == ["css", "contest.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/contest.css").to_vec().into())));
-        }
-
-        if parts == ["css", "submission.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/submission.css").to_vec().into())));
-        }
-
-        if parts == ["css", "main.css"] {
-            return Ok(Response::new(Full::new(include_bytes!("../templates/css/main.css").to_vec().into())));
-        }
-
+        
         if parts == ["img", "logo.png"] {
             return Ok(Response::new(Full::new(include_bytes!("../templates/img/logo.png").to_vec().into())));
         }

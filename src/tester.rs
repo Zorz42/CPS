@@ -7,6 +7,10 @@ use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 pub async fn execute_test(official_input: &str, official_output: &str, executable_path: &Path, time_limit: i32) -> Result<(TestingResult, i32)> {
+    return execute_test_unsafely(official_input, official_output, executable_path, time_limit).await;
+}
+
+pub async fn execute_test_unsafely(official_input: &str, official_output: &str, executable_path: &Path, time_limit: i32) -> Result<(TestingResult, i32)> {
     let start_time = tokio::time::Instant::now();
     let mut child = Command::new(executable_path.as_os_str()).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
 
