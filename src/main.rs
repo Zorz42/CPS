@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use crate::database::Database;
 use crate::request_handler::handle_request;
+use crate::tester::is_isolate_installed;
 use crate::worker::WorkerManager;
 use anyhow::{bail, Result};
 use hyper::service::service_fn;
@@ -102,6 +103,13 @@ async fn main() -> Result<()> {
     database.init_problems().await?;
     database.init_submissions().await?;
     database.init_tests().await?;
+
+    if !is_isolate_installed().await {
+        println!(
+            "Warning: isolate is not installed. This means that the testing system will be unsafe. Please install isolate to ensure that arbitrary code sent by users is run in a safe environment."
+        );
+    }
+
     // init_temporary_data(&database).await?; // this should be called once and then it stays in the database
 
     let workers = WorkerManager::new(32, &database);
