@@ -208,11 +208,12 @@ impl Database {
         static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT points FROM subtask_results WHERE submission_id = $1 AND subtask_id = $2");
 
         let column = QUERY.execute(self, &[&submission_id, &subtask_id]).await?;
-        let row = column
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("No subtask result for submission {} and subtask {}", submission_id, subtask_id))?;
+        let row = column.first();
 
-        Ok(row.try_get(0).ok())
+        if let Some(row) = row {
+            return Ok(row.try_get(0).ok());
+        }
+        Ok(None)
     }
 
     pub async fn get_subtask_total_points(&self, subtask_id: SubtaskId) -> Result<i32> {

@@ -195,6 +195,10 @@ impl Database {
 
         QUERY.execute(self, &[&testing_result_to_i32(result), &points, &submission_id]).await?;
 
+        let problem_id = self.get_submission_problem(submission_id).await?;
+        let user_id = self.get_user_from_submission(submission_id).await?;
+        self.update_user_score_for_problem(user_id, problem_id).await?;
+
         Ok(())
     }
 
@@ -290,5 +294,16 @@ impl Database {
 
         QUERY.execute(self, &[&testing_result_to_i32(result), &submission_id]).await?;
         Ok(())
+    }
+
+    pub async fn get_user_from_submission(&self, submission_id: SubmissionId) -> Result<UserId> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT user_id FROM submissions WHERE submission_id = $1");
+
+        Ok(QUERY
+            .execute(self, &[&submission_id])
+            .await?
+            .first()
+            .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
+            .get(0))
     }
 }

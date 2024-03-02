@@ -8,19 +8,28 @@ use anyhow::Result;
 pub struct SidebarContext {
     pub logged_in: bool,
     pub username: String,
-    pub contests: Vec<(ContestId, String, Vec<(ProblemId, String)>)>,
+    pub contests: Vec<(ContestId, String, i32, i32, Vec<(ProblemId, String, i32, i32)>)>,
 }
 
 pub async fn create_sidebar_context(database: &Database, user: Option<UserId>) -> Result<SidebarContext> {
     let mut contests = Vec::new();
     if let Some(user) = user {
         for id in database.get_contests_for_user(user).await? {
+            let mut contest_points = 0;
+            let mut contest_max_points = 0;
+
             let mut problems = Vec::new();
             for problem in database.get_problems_for_contest(id).await? {
-                problems.push((problem, database.get_problem_name(problem).await?));
+                let max_points = database.get_problem_total_points(problem).await?;
+                let points = database.get_user_score_for_problem(user, problem).await?;
+
+                contest_points += points;
+                contest_max_points += max_points;
+
+                problems.push((problem, database.get_problem_name(problem).await?, points, max_points));
             }
 
-            contests.push((id, database.get_contest_name(id).await?, problems));
+            contests.push((id, database.get_contest_name(id).await?, contest_points, contest_max_points, problems));
         }
     }
 

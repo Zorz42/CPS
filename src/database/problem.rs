@@ -31,6 +31,19 @@ impl Database {
             )
             .await?;
 
+        // add table of user scores for problems
+        self.get_postgres_client()
+            .execute(
+                "CREATE TABLE IF NOT EXISTS user_problem_scores (
+                    user_id INT REFERENCES users(user_id),
+                    problem_id INT REFERENCES problems(problem_id),
+                    score INT NOT NULL,
+                    PRIMARY KEY (user_id, problem_id)
+                );",
+                &[],
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -128,5 +141,34 @@ impl Database {
         static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT time_limit FROM problems WHERE problem_id = $1");
 
         Ok(QUERY.execute(self, &[&problem_id]).await?.first().ok_or_else(|| anyhow!("No problem with id {}", problem_id))?.get(0))
+    }
+
+    pub async fn get_user_score_for_problem(&self, user_id: i32, problem_id: ProblemId) -> Result<i32> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT score FROM user_problem_scores WHERE user_id = $1 AND problem_id = $2");
+
+        Ok(QUERY.execute(self, &[&user_id, &problem_id]).await?.first().map_or(0, |row| row.get(0)))
+    }
+
+    pub async fn update_user_score_for_problem(&self, user_id: i32, problem_id: ProblemId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO user_problem_scores (user_id, problem_id, score) VALUES ($1, $2, $3) ON CONFLICT (user_id, problem_id) DO UPDATE SET score = $3");
+
+        let submissions = self.get_submissions_by_user_for_problem(user_id, problem_id).await?;
+        let subtasks = self.get_subtasks_for_problem(problem_id).await?;
+
+        let mut score = 0;
+
+        for subtask in subtasks {
+            let mut subtask_score = 0;
+
+            for submission in &submissions {
+                subtask_score = subtask_score.max(self.get_subtask_points_result(*submission, subtask).await?.unwrap_or(0));
+            }
+
+            score += subtask_score;
+        }
+
+        QUERY.execute(self, &[&user_id, &problem_id, &score]).await?;
+
+        Ok(())
     }
 }
