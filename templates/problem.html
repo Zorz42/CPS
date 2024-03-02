@@ -2,8 +2,8 @@
 <head>
     <title>Problem</title>
     <link rel="stylesheet" href="/css/problem.css">
-    {% include "big_score.html" %}
-    {% import "big_score.html" as big_score %}
+    {% include "score.html" %}
+    {% import "score.html" as score %}
 </head>
 
 <body>
@@ -27,7 +27,7 @@
     <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/" class="submission-href">
         <div class="submission">
             Submission {{ submission_id }}
-            {% call big_score::big_score(points, max_points, hide_score, message) %}
+            {% call score::big_score(points, max_points, hide_score, message) %}
         </div>
     </a>
     {% endfor %}

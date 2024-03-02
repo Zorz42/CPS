@@ -64,7 +64,7 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             let res = match *parts.get(1).unwrap_or(&"") {
                 "main.css" => Some(include_bytes!("../templates/css/main.css").to_vec()),
                 "sidebar.css" => Some(include_bytes!("../templates/css/sidebar.css").to_vec()),
-                "big_score.css" => Some(include_bytes!("../templates/css/big_score.css").to_vec()),
+                "score.css" => Some(include_bytes!("../templates/css/score.css").to_vec()),
                 "problem.css" => Some(include_bytes!("../templates/css/problem.css").to_vec()),
                 "contest.css" => Some(include_bytes!("../templates/css/contest.css").to_vec()),
                 "submission.css" => Some(include_bytes!("../templates/css/submission.css").to_vec()),
