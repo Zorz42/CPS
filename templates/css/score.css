@@ -30,11 +30,11 @@
 .small-score-wrapper {
     border-radius: 10px;
     min-width: 60px;
-    min-height: 20px;
+    min-height: 15px;
     display: flex;
     justify-content: center;
 }
 
 .small-score-text {
-
+    font-size: 12px;
 }

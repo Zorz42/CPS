@@ -20,6 +20,8 @@ pub struct ProblemSite {
     problem_description: String,
     submissions: Vec<(SubmissionId, i32, i32, bool, String)>,
     sidebar_context: SidebarContext,
+    points: i32,
+    max_points: i32,
 }
 
 pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: UserId) -> Result<Option<Response<Full<Bytes>>>> {
@@ -52,6 +54,9 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
 
         let problem_description = database.get_problem_description(problem_id).await?;
 
+        let points = database.get_user_score_for_problem(user_id, problem_id).await?;
+        let max_points = database.get_problem_total_points(problem_id).await?.max(1);
+
         return Ok(Some(create_html_response(&ProblemSite {
             contest_id,
             problem_id,
@@ -59,6 +64,8 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
             problem_name: database.get_problem_name(problem_id).await?,
             submissions,
             sidebar_context: create_sidebar_context(database, Some(user_id)).await?,
+            points,
+            max_points,
         })?));
     }
 

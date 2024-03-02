@@ -16,12 +16,19 @@
         {{ problem_description }}
     </p>
 
-    <h2>Submit a solution</h2>
-    <form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
-        <label for="file">File</label>
-        <input id="file" name="file" type="file"/>
-        <button>Submit</button>
-    </form>
+    <div class="submit-div">
+        <div>
+            <h2>Submit a solution</h2>
+            <form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
+                <input id="file" name="file" type="file"/>
+                <button>Submit</button>
+            </form>
+        </div>
+        <div>
+            <h2 style="text-align: center;">Score</h2>
+            {% call score::big_score(points, max_points, false, "") %}
+        </div>
+    </div>
 
     {% for (submission_id, points, max_points, hide_score, message) in submissions %}
     <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/" class="submission-href">
