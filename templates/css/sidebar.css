@@ -3,6 +3,7 @@ body {
     padding: 0;
     margin: 0;
     font-family: Arial, sans-serif;
+    background-color: #202020;
 }
 
 #sidebar-div {
@@ -32,7 +33,7 @@ body {
 
 .sidebar-contest-wrapper, .sidebar-problem-wrapper {
     margin: 10px 0;
-    background-color: #f0f0f0;
+    background-color: #303030;
     border-radius: 20px;
     padding: 10px 10px 10px 20px;
     display: flex;
@@ -41,7 +42,7 @@ body {
 }
 
 .sidebar-contest-wrapper:hover, .sidebar-problem-wrapper:hover {
-    background-color: lightgray;
+    background-color: #404040;
 }
 
 .sidebar-contest-wrapper {
@@ -67,4 +68,8 @@ svg {
 .score-div {
     order: 2;
     margin-left: auto;
+}
+
+div {
+    color: #e0e0e0;
 }

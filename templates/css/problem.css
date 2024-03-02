@@ -10,14 +10,14 @@
     padding: 10px 10px 10px 30px;
     margin: 10px;
     border-radius: 20px;
-    background-color: #f0f0f0;
+    background-color: #303030;
     width: 50%;
     min-width: 400px;
     transition: 0.3s;
 }
 
 .submission:hover {
-    background-color: lightgray;
+    background-color: #404040;
 }
 
 .submission-href {
@@ -28,7 +28,7 @@
 .submit-div {
     display: flex;
     justify-content: space-between;
-    background-color: #f0f0f0;
+    background-color: #303030;
     border-radius: 20px;
     padding: 10px 10px 10px 30px;
     margin: 10px;
