@@ -39,27 +39,27 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             return handle_login_form(&database, request).await;
         }
 
-        if user.is_none() {
+        if let Some(user) = user {
+            if parts == ["logout"] {
+                return handle_logout_form(&database, token).await;
+            }
+
+            if parts.len() == 5 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submit_file" {
+                if let Some(result) = handle_submission_form(&database, user, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), request, &workers).await? {
+                    return Ok(result);
+                }
+            }
+        } else {
             return create_html_response(&LoginSite {
                 error_message: "You must be logged in to perform this action".to_owned(),
             });
-        }
-
-        if parts == ["logout"] {
-            return handle_logout_form(&database, token).await;
-        }
-
-        if parts.len() == 5 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submit_file" {
-            if let Some(result) = handle_submission_form(&database, user, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), request, &workers).await? {
-                return Ok(result);
-            }
         }
     } else if request.method() == hyper::Method::GET {
         // if the path is empty, we are at the root of the website
         if parts.is_empty() {
             return create_main_page(&database, user).await;
         }
-        
+
         if parts.len() == 2 && parts.first().unwrap_or(&"") == &"css" {
             let res = match *parts.get(1).unwrap_or(&"") {
                 "main.css" => Some(include_bytes!("../templates/css/main.css").to_vec()),
@@ -70,12 +70,12 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
                 "submission.css" => Some(include_bytes!("../templates/css/submission.css").to_vec()),
                 _ => None,
             };
-            
+
             if let Some(res) = res {
                 return Ok(Response::new(Full::new(res.into())));
             }
         }
-        
+
         if parts == ["img", "logo.png"] {
             return Ok(Response::new(Full::new(include_bytes!("../templates/img/logo.png").to_vec().into())));
         }
@@ -85,28 +85,28 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             return create_login_page();
         }
 
-        if user.is_none() {
+        if let Some(user) = user {
+            if parts.len() == 2 && parts.first().unwrap_or(&"") == &"contest" {
+                if let Some(result) = create_contest_page(&database, parts.get(1).unwrap_or(&""), user).await? {
+                    return Ok(result);
+                }
+            }
+
+            if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" {
+                if let Some(result) = create_problem_page(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user).await? {
+                    return Ok(result);
+                }
+            }
+
+            if parts.len() == 6 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submission" {
+                if let Some(result) = create_submission_page(&database, parts.get(5).unwrap_or(&""), user).await? {
+                    return Ok(result);
+                }
+            }
+        } else {
             return create_html_response(&LoginSite {
                 error_message: "You must be logged in to perform this action".to_owned(),
             });
-        }
-
-        if parts.len() == 2 && parts.first().unwrap_or(&"") == &"contest" {
-            if let Some(result) = create_contest_page(&database, parts.get(1).unwrap_or(&""), user).await? {
-                return Ok(result);
-            }
-        }
-
-        if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" {
-            if let Some(result) = create_problem_page(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user).await? {
-                return Ok(result);
-            }
-        }
-
-        if parts.len() == 6 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submission" {
-            if let Some(result) = create_submission_page(&database, parts.get(5).unwrap_or(&""), user).await? {
-                return Ok(result);
-            }
         }
     }
 

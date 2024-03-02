@@ -18,7 +18,7 @@ pub struct ContestSite {
     sidebar_context: SidebarContext,
 }
 
-pub async fn create_contest_page(database: &Database, contest_id: &str, user: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_contest_page(database: &Database, contest_id: &str, user: UserId) -> Result<Option<Response<Full<Bytes>>>> {
     if let Ok(contest_id) = contest_id.parse::<i32>() {
         if database.is_contest_id_valid(contest_id).await {
             let mut problems = Vec::new();
@@ -29,7 +29,7 @@ pub async fn create_contest_page(database: &Database, contest_id: &str, user: Op
             return Ok(Some(create_html_response(&ContestSite {
                 contest_id,
                 problems,
-                sidebar_context: create_sidebar_context(database, user).await?,
+                sidebar_context: create_sidebar_context(database, Some(user)).await?,
             })?));
         }
     }

@@ -22,7 +22,7 @@ pub struct ProblemSite {
     sidebar_context: SidebarContext,
 }
 
-pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: UserId) -> Result<Option<Response<Full<Bytes>>>> {
     if let (Some(contest_id), Some(problem_id)) = (contest_id.parse::<ContestId>().ok(), problem_id.parse::<ProblemId>().ok()) {
         if !database.is_contest_id_valid(contest_id).await {
             return Ok(None);
@@ -32,7 +32,7 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
             return Ok(None);
         }
 
-        let mut submissions = if let Some(user_id) = user_id {
+        let mut submissions = {
             let mut res = Vec::new();
             for id in database.get_submissions_by_user_for_problem(user_id, problem_id).await? {
                 let total_points = database.get_problem_total_points(problem_id).await?;
@@ -45,8 +45,6 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
                 res.push((id, points, total_points.max(1), hide_score, message));
             }
             res
-        } else {
-            Vec::new()
         };
 
         // Sort by submission id in descending order
@@ -60,7 +58,7 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
             problem_description,
             problem_name: database.get_problem_name(problem_id).await?,
             submissions,
-            sidebar_context: create_sidebar_context(database, user_id).await?,
+            sidebar_context: create_sidebar_context(database, Some(user_id)).await?,
         })?));
     }
 

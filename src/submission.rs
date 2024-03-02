@@ -67,7 +67,7 @@ async fn extract_file_from_request(request: Request<Incoming>) -> Result<String>
 
 pub async fn handle_submission_form(
     database: &Database,
-    user_id: Option<UserId>,
+    user_id: UserId,
     contest_id: &str,
     problem_id: &str,
     request: Request<Incoming>,
@@ -75,16 +75,14 @@ pub async fn handle_submission_form(
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
 
-    database
-        .add_submission(user_id.ok_or_else(|| anyhow!("User is not logged in"))?, problem_id.parse()?, code, workers)
-        .await?;
+    database.add_submission(user_id, problem_id.parse()?, code, workers).await?;
 
     Ok(Some(create_html_response(&RedirectSite {
         url: format!("/contest/{contest_id}/problem/{problem_id}"),
     })?))
 }
 
-pub async fn create_submission_page(database: &Database, submission_id: &str, user: Option<UserId>) -> Result<Option<Response<Full<Bytes>>>> {
+pub async fn create_submission_page(database: &Database, submission_id: &str, user: UserId) -> Result<Option<Response<Full<Bytes>>>> {
     if let Ok(submission_id) = submission_id.parse() {
         let code = database.get_submission_code(submission_id).await?;
         let subtasks = database.get_subtasks_for_submission(submission_id).await?;
@@ -125,7 +123,7 @@ pub async fn create_submission_page(database: &Database, submission_id: &str, us
             subtasks: subtask_vec,
             result,
             score,
-            sidebar_context: create_sidebar_context(database, user).await?,
+            sidebar_context: create_sidebar_context(database, Some(user)).await?,
         })?));
     }
 
