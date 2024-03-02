@@ -36,6 +36,7 @@ body {
     border-radius: 10px;
     padding: 10px;
     display: flex;
+    align-items: center;
     transition: 0.3s;
 }
 
@@ -61,4 +62,9 @@ svg {
     width: 100px;
     height: 100px;
     margin: 20px 0 20px 0;
+}
+
+.score-div {
+    order: 2;
+    margin-left: auto;
 }

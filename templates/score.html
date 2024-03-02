@@ -16,3 +16,13 @@
 </div>
 
 {%- endmacro -%}
+
+{% macro small_score(points, max_points) -%}
+
+<div class="small-score-wrapper" style="background-color: rgb({{ (max_points - points) * 600 / max_points }}, {{ points * 400 / max_points }}, 0);">
+    <p class="small-score-text">
+        {{ points }}/{{ max_points }}
+    </p>
+</div>
+
+{%- endmacro -%}

@@ -20,7 +20,7 @@ pub async fn create_sidebar_context(database: &Database, user: Option<UserId>) -
 
             let mut problems = Vec::new();
             for problem in database.get_problems_for_contest(id).await? {
-                let max_points = database.get_problem_total_points(problem).await?;
+                let max_points = database.get_problem_total_points(problem).await?.max(1);
                 let points = database.get_user_score_for_problem(user, problem).await?;
 
                 contest_points += points;
@@ -29,7 +29,7 @@ pub async fn create_sidebar_context(database: &Database, user: Option<UserId>) -
                 problems.push((problem, database.get_problem_name(problem).await?, points, max_points));
             }
 
-            contests.push((id, database.get_contest_name(id).await?, contest_points, contest_max_points, problems));
+            contests.push((id, database.get_contest_name(id).await?, contest_points, contest_max_points.max(1), problems));
         }
     }
 

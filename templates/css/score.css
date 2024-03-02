@@ -26,3 +26,15 @@
     width: 200px;
     height: 30px;
 }
+
+.small-score-wrapper {
+    border-radius: 10px;
+    min-width: 60px;
+    min-height: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.small-score-text {
+
+}
