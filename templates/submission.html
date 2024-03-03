@@ -16,15 +16,24 @@
     <div id="code-wrapper" class="element">
         <pre class="prettyprint element">{{ code }}</pre>
     </div>
-    <h2>Verdict: {{ result }} {{ score }}</h2>
-    <h2>Results</h2>
-    {% for (points, result, tests) in subtasks %}
-    <h3>Subtask {{ result }} {{ points }}</h3>
-    <ul>
-        {% for (result, time) in tests %}
-        <li>test {{ result }} {{ time }}</li>
-        {% endfor %}
-    </ul>
+    <div class="element submission-score-div">
+        <h2>Verdict: {{ result }} {{ points }}/{{ max_points }}</h2>
+    </div>
+    {% for (i, (points, result, tests)) in subtasks.iter().enumerate() %}
+    <div class="element subtask-div">
+        <div class="subtask-title">
+            <h2>Subtask {{ i + 1 }} {{ result }} {{ points }}</h2>
+        </div>
+        <div class="subtask-tests-div lighter element">
+            {% for (i, (result, color, time)) in tests.iter().enumerate() %}
+            <div class="test-div">
+                <div style="padding: 1% 0;">Test {{ i + 1 }}</div>
+                <div class="test-result-div" style="background-color: {{ color }}">{{ result }}</div>
+                <div style="padding: 1% 0; width: 50px">{{ time }}ms</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
     {% endfor %}
 
 </div>
