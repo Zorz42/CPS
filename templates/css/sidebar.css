@@ -33,16 +33,9 @@ body {
 
 .sidebar-contest-wrapper, .sidebar-problem-wrapper {
     margin: 10px 0;
-    background-color: #303030;
-    border-radius: 20px;
     padding: 10px 10px 10px 20px;
     display: flex;
     align-items: center;
-    transition: 0.3s;
-}
-
-.sidebar-contest-wrapper:hover, .sidebar-problem-wrapper:hover {
-    background-color: #404040;
 }
 
 .sidebar-contest-wrapper {
@@ -72,4 +65,48 @@ svg {
 
 div {
     color: #e0e0e0;
+}
+
+.element {
+    background-color: #303030;
+    border-radius: 20px;
+    border: none;
+    color: white;
+}
+
+.hoverable {
+    transition: background-color 0.3s;
+}
+
+.hoverable:hover {
+    background-color: #404040;
+}
+
+.lighter {
+    background-color: #404040;
+}
+
+.lighter.hoverable:hover {
+    background-color: #505050;
+}
+
+#login-button, #logout-button {
+    padding: 10px;
+}
+
+#logo-wrapper {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+}
+
+#logo-wrapper a {
+    padding: 0;
+    margin: 0;
+}
+
+#logo-wrapper a img {
+    padding: 0;
+    margin: 0;
 }

@@ -75,7 +75,9 @@ pub async fn handle_submission_form(
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
 
-    database.add_submission(user_id, problem_id.parse()?, code, workers).await?;
+    if !code.is_empty() {
+        database.add_submission(user_id, problem_id.parse()?, code, workers).await?;
+    }
 
     Ok(Some(create_html_response(&RedirectSite {
         url: format!("/contest/{contest_id}/problem/{problem_id}"),

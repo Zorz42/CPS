@@ -16,12 +16,12 @@
         {{ problem_description }}
     </p>
 
-    <div class="submit-div">
+    <div class="submit-div element">
         <div>
             <h2>Submit a solution</h2>
             <form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
-                <input id="file" name="file" type="file"/>
-                <button>Submit</button>
+                <input id="file" name="file" type="file" required/>
+                <button id="file-submit" class="hoverable lighter element">Submit</button>
             </form>
         </div>
         <div>
@@ -32,7 +32,7 @@
 
     {% for (submission_id, points, max_points, hide_score, message) in submissions %}
     <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/submission/{{ submission_id }}/" class="submission-href">
-        <div class="submission">
+        <div class="submission hoverable element">
             Submission {{ submission_id }}
             {% call score::big_score(points, max_points, hide_score, message) %}
         </div>
