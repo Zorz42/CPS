@@ -2,9 +2,9 @@
 
 <head>
     <title>Submission</title>
-    <link rel="stylesheet" href="/css/submission.css">
     <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
     <link rel="stylesheet" href="https://jmblog.github.io/color-themes-for-google-code-prettify/themes/tomorrow-night-eighties.css">
+    <link rel="stylesheet" href="/css/submission.css">
 </head>
 
 <body>
@@ -12,10 +12,10 @@
 {% include "sidebar.html" %}
 
 <div id="content">
-
-    <h1>Submission</h1>
     <h2>Code</h2>
-    <pre class="prettyprint element">{{ code }}</pre>
+    <div id="code-wrapper" class="element">
+        <pre class="prettyprint element">{{ code }}</pre>
+    </div>
     <h2>Verdict: {{ result }} {{ score }}</h2>
     <h2>Results</h2>
     {% for (points, result, tests) in subtasks %}

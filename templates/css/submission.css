@@ -6,3 +6,8 @@
 .prettyprint {
     margin-right: 40px;
 }
+
+#code-wrapper {
+    padding: 10px;
+    margin-right: 20px;
+}

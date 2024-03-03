@@ -92,6 +92,7 @@ div {
 
 #login-button, #logout-button {
     padding: 10px;
+    text-decoration: none;
 }
 
 #logo-wrapper {
@@ -99,6 +100,8 @@ div {
     justify-content: center;
     align-items: center;
     padding: 10px;
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 #logo-wrapper a {
