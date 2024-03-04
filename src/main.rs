@@ -141,16 +141,21 @@ async fn main() -> Result<()> {
             let service = service_fn(move |request| handle_request(request, database.clone(), workers.clone()));
 
             let result = if let Some(tls_acceptor) = tls_acceptor {
-                tokio_builder.serve_connection(TokioIo::new(tls_acceptor.accept(tcp_stream).await?), service).await
+                let stream = tls_acceptor.accept(tcp_stream).await;
+                match stream {
+                    Ok(stream) => tokio_builder.serve_connection(TokioIo::new(stream), service).await,
+                    Err(err) => {
+                        println!("Error accepting TLS connection: {:?}", err);
+                        return;
+                    }
+                }
             } else {
                 tokio_builder.serve_connection(TokioIo::new(tcp_stream), service).await
             };
 
             if let Err(err) = result {
-                bail!("Error serving connection: {:?}", err);
+                println!("Error serving connection: {:?}", err);
             }
-
-            anyhow::Ok(())
         });
     }
 }
