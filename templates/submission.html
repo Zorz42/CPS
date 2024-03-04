@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/css/submission.css">
     <link rel="stylesheet" href="/css/sidebar.css">
     <link rel="stylesheet" href="/css/score.css">
+    {% include "score.html" %}
+    {% import "score.html" as score %}
 </head>
 
 <body>
@@ -19,12 +21,16 @@
         <pre class="prettyprint element">{{ code }}</pre>
     </div>
     <div class="element submission-score-div">
-        <h2>Verdict: {{ result }} {{ points }}/{{ max_points }}</h2>
+        <h2>Verdict: {{ result }}</h2>
+        <div class="final-score-wrapper">
+        {% call score::big_score(points, max_points, false, "") %}
+        </div>
     </div>
-    {% for (i, (points, result, tests)) in subtasks.iter().enumerate() %}
+    {% for (i, (points, max_points, hide_score, message, tests)) in subtasks.iter().enumerate() %}
     <div class="element subtask-div">
         <div class="subtask-title">
-            <h2>Subtask {{ i + 1 }} {{ result }} {{ points }}</h2>
+            <h2>Subtask {{ i + 1 }}</h2>
+            {% call score::big_score(points, max_points, hide_score, message) %}
         </div>
         <div class="subtask-tests-div lighter element">
             {% for (i, (result, color, time)) in tests.iter().enumerate() %}

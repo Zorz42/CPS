@@ -1,4 +1,4 @@
-use crate::database::submission::{testing_result_to_string, TestingResult};
+use crate::database::submission::{testing_result_to_short_string, testing_result_to_string, TestingResult};
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
@@ -16,10 +16,10 @@ use hyper::{Request, Response};
 #[allow(clippy::type_complexity)]
 pub struct SubmissionSite {
     code: String,
-    subtasks: Vec<(String, String, Vec<(String, String, i32)>)>,
-    result: String,
+    subtasks: Vec<(i32, i32, bool, String, Vec<(String, String, i32)>)>,
     points: i32,
     max_points: i32,
+    result: String,
     sidebar_context: SidebarContext,
 }
 
@@ -113,17 +113,18 @@ pub async fn create_submission_page(database: &Database, submission_id: &str, us
                 test_vec.push((testing_result_to_string(test_result), color, time));
             }
 
-            let points = database.get_subtask_points_result(submission_id, subtask).await?;
-            let score_string = if let Some(points) = points {
-                format!("{}/{}", points, database.get_subtask_total_points(subtask).await?)
-            } else {
-                String::new()
-            };
+            let points = database.get_subtask_points_result(submission_id, subtask).await?.unwrap_or(0);
+            let max_points = database.get_subtask_total_points(subtask).await?;
 
-            subtask_vec.push((score_string, testing_result_to_string(database.get_subtask_result(submission_id, subtask).await?), test_vec));
+            let result = database.get_subtask_result(submission_id, subtask).await?;
+            let hide_score = result == TestingResult::InQueue || result == TestingResult::Testing || result == TestingResult::CompilationError || result == TestingResult::Compiling;
+
+            let message = testing_result_to_short_string(result);
+
+            subtask_vec.push((points, max_points, hide_score, message, test_vec));
         }
 
-        let result = testing_result_to_string(database.get_submission_result(submission_id).await?);
+        let result = database.get_submission_result(submission_id).await?;
         let points = database.get_submission_points(submission_id).await?.unwrap_or(0);
         let problem = database.get_submission_problem(submission_id).await?;
         let max_points = database.get_problem_total_points(problem).await?.max(1);
@@ -131,9 +132,9 @@ pub async fn create_submission_page(database: &Database, submission_id: &str, us
         return Ok(Some(create_html_response(&SubmissionSite {
             code,
             subtasks: subtask_vec,
-            result,
             points,
             max_points,
+            result: testing_result_to_string(result),
             sidebar_context: create_sidebar_context(database, Some(user)).await?,
         })?));
     }

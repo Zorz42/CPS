@@ -42,5 +42,22 @@
     padding: 10px;
     border-radius: 10px;
     color: black;
+}
 
+.subtask-title {
+    display: flex;
+    justify-content: space-between;
+    padding-left: 20px;
+    padding-right: 40%;
+}
+
+.submission-score-div {
+    display: flex;
+    justify-content: center;
+    padding-left: 20px;
+}
+
+.final-score-wrapper {
+    padding-bottom: 1%;
+    padding-top: 1%;
 }
