@@ -16,7 +16,7 @@ use crate::database::Database;
 use crate::request_handler::handle_request;
 use crate::tester::is_isolate_installed;
 use crate::worker::WorkerManager;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::net::TcpListener;
@@ -135,7 +135,10 @@ async fn main() -> Result<()> {
         let database = database.clone();
         let workers = workers.clone();
         tokio::task::spawn(async move {
-            println!("Got connection from: {}", tcp_stream.peer_addr()?.ip());
+            match tcp_stream.peer_addr() {
+                Ok(addr) => println!("Got connection from: {}", addr.ip()),
+                Err(err) => println!("Error getting peer address: {:?}", err),
+            }
 
             let tokio_builder = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new());
             let service = service_fn(move |request| handle_request(request, database.clone(), workers.clone()));
