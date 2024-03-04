@@ -19,8 +19,8 @@ use crate::worker::WorkerManager;
 use anyhow::{bail, Result};
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
-use rustls::ServerConfig;
 use tokio::net::TcpListener;
+use tokio_rustls::rustls::ServerConfig;
 
 // this function is used to initialize the temporary data
 // it will be later replaced by a database
@@ -95,7 +95,8 @@ pub fn get_server_config() -> Result<ServerConfig> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let port = 3000;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr).await?;
     let database = Database::new().await?;
     database.init_users().await?;
@@ -124,6 +125,8 @@ async fn main() -> Result<()> {
         println!("Reverting to http...");
         None
     };
+
+    println!("Server is now running on port {port}.");
 
     loop {
         let tcp_stream = listener.accept().await?.0;
