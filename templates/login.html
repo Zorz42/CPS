@@ -1,20 +1,32 @@
 <html>
 <head>
     <title>Login</title>
+    <link rel="stylesheet" href="/css/login.css">
+    <link rel="stylesheet" href="/css/sidebar.css">
 </head>
 
 <body>
-<h1>Login</h1>
-<p style="color:red;">{{ error_message }}</p>
-<form action="/login" method="post">
-    <label for="username">Username:</label>
-    <input type="text" id="username" name="username" autocomplete="username" required>
-    <br>
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password" autocomplete="current-password" required>
-    <br>
-    <input type="submit" value="Login">
-</form>
+<div class="element login-div">
+    <div class="login-element-div">
+        <h1>Login</h1><br>
+    </div>
+    {% if !error_message.is_empty() %}
+    <div class="login-element-div">
+        <p style="color:red;">{{ error_message }}</p>
+    </div>
+    {% endif %}
+    <form action="/login" method="post">
+        <div class="login-element-div">
+            <input class="textbox hoverable lighter element" type="text" id="username" name="username" autocomplete="username" placeholder="Username" required>
+        </div>
+        <div class="login-element-div">
+            <input class="textbox hoverable lighter element" type="password" id="password" name="password" autocomplete="current-password" placeholder="Password" required>
+        </div>
+        <div class="login-element-div">
+            <input class="login-submit-button hoverable lighter element" type="submit" value="Login">
+        </div>
+    </form>
+</div>
 </body>
 
 </html>

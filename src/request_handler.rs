@@ -68,6 +68,7 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
                 "problem.css" => Some(include_bytes!("../templates/css/problem.css").to_vec()),
                 "contest.css" => Some(include_bytes!("../templates/css/contest.css").to_vec()),
                 "submission.css" => Some(include_bytes!("../templates/css/submission.css").to_vec()),
+                "login.css" => Some(include_bytes!("../templates/css/login.css").to_vec()),
                 _ => None,
             };
 

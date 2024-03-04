@@ -1,0 +1,29 @@
+body {
+    display: flex;
+    justify-content: center;
+}
+
+.login-div {
+    display: inline-block;
+    margin: auto;
+    padding: 20px;
+}
+
+.textbox {
+    padding: 15px;
+    width: 500px;
+    margin: 10px;
+    font-size: 20px;
+}
+
+.login-element-div {
+    display: flex;
+    justify-content: center;
+}
+
+.login-submit-button {
+    font-size: 20px;
+    padding: 15px;
+    margin: 10px;
+    width: 100px;
+}
