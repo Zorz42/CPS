@@ -155,23 +155,3 @@ impl Database {
         Ok(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0))
     }
 }
-
-pub fn parse_login_string(body: &str) -> (String, String) {
-    let mut username = String::new();
-    let mut password = String::new();
-
-    for part in body.split('&') {
-        let parts: Vec<&str> = part.split('=').collect();
-        if parts.len() != 2 {
-            continue;
-        }
-
-        match *parts.first().unwrap_or(&"") {
-            "username" => username = (*parts.get(1).unwrap_or(&"")).to_owned(),
-            "password" => password = (*parts.get(1).unwrap_or(&"")).to_owned(),
-            _ => {}
-        }
-    }
-
-    (username, password)
-}

@@ -3,7 +3,7 @@ use crate::database::Database;
 use crate::main_page::create_main_page;
 use crate::problem::create_problem_page;
 use crate::submission::{create_submission_page, handle_submission_form};
-use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form, LoginSite};
+use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form, handle_user_creation, LoginSite};
 use crate::worker::WorkerManager;
 use anyhow::Result;
 use askama::Template;
@@ -29,6 +29,7 @@ pub struct NotFoundSite;
 pub async fn handle_request(request: Request<Incoming>, database: Database, workers: WorkerManager) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request)?;
     let user = if let Some(token) = &token { database.get_user_from_token(token.clone()).await? } else { None };
+    let is_admin = if let Some(user) = user { database.is_user_admin(user).await? } else { false };
 
     let mut parts_owned = request.uri().path().split('/').map(ToOwned::to_owned).collect::<Vec<String>>();
     let mut parts = parts_owned.iter_mut().map(|x| &**x).collect::<Vec<&str>>();
@@ -42,6 +43,10 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
         if let Some(user) = user {
             if parts == ["logout"] {
                 return handle_logout_form(&database, token).await;
+            }
+
+            if parts == ["create_user"] {
+                return handle_user_creation(&database, request, is_admin).await;
             }
 
             if parts.len() == 5 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submit_file" {

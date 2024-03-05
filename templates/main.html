@@ -19,6 +19,23 @@
     {% if is_admin %}
     <h1>Admin Panel</h1>
 
+    <h2>Create a new user</h2>
+    <form action="/create_user" method="post">
+        <div class="create-element-div">
+            <input class="textbox hoverable lighter element" type="text" id="username" name="username" autocomplete="username" placeholder="Username" required>
+        </div>
+        <div class="create-element-div">
+            <input class="textbox hoverable lighter element" type="text" id="password" name="password" autocomplete="current-password" placeholder="Password" required>
+        </div>
+        <div class="create-element-div">
+            <p id="admin-text">Is admin?</p>
+            <input class="textbox hoverable lighter element" type="checkbox" id="is_admin" name="is_admin" autocomplete="off">
+        </div>
+        <div class="create-element-div">
+            <input class="create-submit-button hoverable lighter element" type="submit" value="Create user">
+        </div>
+    </form>
+
     {% endif %}
 
 </div>
