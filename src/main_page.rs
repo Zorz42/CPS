@@ -12,10 +12,14 @@ use hyper::Response;
 #[template(path = "main.html")]
 pub struct MainSite {
     sidebar_context: SidebarContext,
+    is_admin: bool,
 }
 
 pub async fn create_main_page(database: &Database, user: Option<UserId>) -> Result<Response<Full<Bytes>>> {
+    let is_admin = if let Some(user) = user { database.is_user_admin(user).await? } else { false };
+
     create_html_response(&MainSite {
         sidebar_context: create_sidebar_context(database, user).await?,
+        is_admin,
     })
 }

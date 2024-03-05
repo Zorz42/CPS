@@ -144,6 +144,16 @@ impl Database {
         }
         Ok(Some(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0)))
     }
+
+    pub async fn is_user_admin(&self, user_id: UserId) -> Result<bool> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT is_admin FROM users WHERE user_id = $1");
+
+        let rows = QUERY.execute(self, &[&user_id]).await?;
+        if rows.is_empty() {
+            bail!("User does not exist");
+        }
+        Ok(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0))
+    }
 }
 
 pub fn parse_login_string(body: &str) -> (String, String) {

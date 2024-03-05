@@ -11,8 +11,15 @@
 {% include "sidebar.html" %}
 
 <div id="content">
-    <h1>Home</h1>
-    <p>Welcome to our home page!</p>
+
+    <h1>Welcome to CPS!</h1>
+    <p>This is a simple web application written in Rust that allows you to create and participate in programming contests.</p>
+    <p>It is designed to be simple and easy to use, and it is open source. You can find the source code at <a href="https://github.com/Zorz42/cps">github</a>.</p>
+
+    {% if is_admin %}
+    <h1>Admin Panel</h1>
+
+    {% endif %}
 
 </div>
 

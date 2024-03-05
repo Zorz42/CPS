@@ -113,3 +113,23 @@ div {
     padding: 0;
     margin: 0;
 }
+
+a {
+    color: cornflowerblue;
+}
+
+a:hover {
+    color: lightskyblue;
+}
+
+a:visited {
+    color: mediumpurple;
+}
+
+a:visited:hover {
+    color: mediumslateblue;
+}
+
+a {
+    transition: color 0.3s;
+}
