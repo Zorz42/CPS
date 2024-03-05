@@ -5,12 +5,9 @@ pub mod test;
 pub mod user;
 
 use anyhow::Result;
-use std::env;
 use std::sync::{Arc, OnceLock};
 use tokio_postgres::types::ToSql;
 use tokio_postgres::{Row, Statement};
-
-const DB_NAME: &str = "cps";
 
 #[derive(Clone)]
 pub struct Database {
@@ -18,13 +15,9 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new() -> Result<Self> {
-        let args: Vec<String> = env::args().collect();
-        let username = args.get(1).ok_or_else(|| anyhow::anyhow!("no username argument"))?;
-        let password = args.get(2).ok_or_else(|| anyhow::anyhow!("no password argument"))?;
-        let host = args.get(3).ok_or_else(|| anyhow::anyhow!("no host argument"))?;
+    pub async fn new(username: &str, password: &str, host: &str, db_name: &str) -> Result<Self> {
         println!("connecting to database \"{host}\" with username \"{username}\"");
-        let (client, connection) = tokio_postgres::connect(&format!("host={host} user={username} password={password} dbname={DB_NAME}"), tokio_postgres::NoTls).await?;
+        let (client, connection) = tokio_postgres::connect(&format!("host={host} user={username} password={password} dbname={db_name}"), tokio_postgres::NoTls).await?;
 
         // Spawn a new task to process the connection in the background.
         tokio::spawn(async move {

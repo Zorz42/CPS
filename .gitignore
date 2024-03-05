@@ -3,6 +3,7 @@
 /temp/
 **/.DS_Store
 run.sh
+cps_config.toml
 
 # Added by cargo
 

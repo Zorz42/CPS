@@ -10,6 +10,7 @@ mod user;
 mod worker;
 
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::database::Database;
@@ -76,7 +77,7 @@ async fn init_temporary_data(database: &Database) -> Result<()> {
     Ok(())
 }
 
-pub fn get_server_config() -> Result<ServerConfig> {
+fn get_server_https_config() -> Result<ServerConfig> {
     // get key and certificate from files in ./cert/fullchain.pem and ./cert/privkey.pem
     let mut cert_file = std::io::BufReader::new(std::fs::File::open("./cert/fullchain1.pem")?);
     let mut key_file = std::io::BufReader::new(std::fs::File::open("./cert/privkey1.pem")?);
@@ -93,12 +94,53 @@ pub fn get_server_config() -> Result<ServerConfig> {
         .with_single_cert(certificates, key)?)
 }
 
+#[derive(serde::Deserialize)]
+struct ConfigFile {
+    db_host: Option<String>,
+    db_username: Option<String>,
+    db_password: Option<String>,
+    db_name: Option<String>,
+    port: Option<u16>,
+}
+
+#[derive(serde::Serialize)]
+struct Config {
+    db_host: String,
+    db_username: String,
+    db_password: String,
+    db_name: String,
+    port: u16,
+}
+
+const CONFIG_FILE: &str = "cps_config.toml";
+
+fn get_config() -> Result<Config> {
+    let config_file_str = if Path::new(CONFIG_FILE).exists() { std::fs::read_to_string(CONFIG_FILE)? } else { String::new() };
+
+    let config: ConfigFile = toml::from_str(&config_file_str)?;
+
+    let config = Config {
+        db_host: config.db_host.unwrap_or_else(|| "127.0.0.1".to_owned()),
+        db_username: config.db_username.unwrap_or_else(|| "postgres".to_owned()),
+        db_password: config.db_password.unwrap_or_else(|| "postgres".to_owned()),
+        db_name: config.db_name.unwrap_or_else(|| "cps".to_owned()),
+        port: config.port.unwrap_or(3000),
+    };
+
+    // save the config to the file
+    std::fs::write(CONFIG_FILE, toml::to_string(&config)?)?;
+
+    Ok(config)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let port = 3000;
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let config = get_config()?;
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = TcpListener::bind(addr).await?;
-    let database = Database::new().await?;
+
+    let database = Database::new(&config.db_username, &config.db_password, &config.db_host, &config.db_name).await?;
     database.init_users().await?;
     database.init_contests().await?;
     database.init_problems().await?;
@@ -115,7 +157,7 @@ async fn main() -> Result<()> {
 
     let workers = WorkerManager::new(32, &database);
 
-    let server_config = get_server_config();
+    let server_config = get_server_https_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
         server_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec(), b"http/1.2".to_vec()];
         Some(tokio_rustls::TlsAcceptor::from(Arc::new(server_config)))
@@ -126,7 +168,7 @@ async fn main() -> Result<()> {
         None
     };
 
-    println!("Server is now running on port {port}.");
+    println!("Server is now running on port {}.", config.port);
 
     loop {
         let tcp_stream = listener.accept().await?.0;
@@ -137,7 +179,7 @@ async fn main() -> Result<()> {
         tokio::task::spawn(async move {
             match tcp_stream.peer_addr() {
                 Ok(addr) => println!("Got connection from: {}", addr.ip()),
-                Err(err) => println!("Error getting peer address: {:?}", err),
+                Err(err) => println!("Error getting peer address: {err}"),
             }
 
             let tokio_builder = hyper_util::server::conn::auto::Builder::new(TokioExecutor::new());
@@ -148,7 +190,7 @@ async fn main() -> Result<()> {
                 match stream {
                     Ok(stream) => tokio_builder.serve_connection(TokioIo::new(stream), service).await,
                     Err(err) => {
-                        println!("Error accepting TLS connection: {:?}", err);
+                        println!("Error accepting TLS connection: {err}");
                         return;
                     }
                 }
@@ -157,7 +199,7 @@ async fn main() -> Result<()> {
             };
 
             if let Err(err) = result {
-                println!("Error serving connection: {:?}", err);
+                println!("Error serving connection: {err}");
             }
         });
     }
