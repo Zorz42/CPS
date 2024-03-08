@@ -154,4 +154,11 @@ impl Database {
         }
         Ok(rows.first().ok_or_else(|| anyhow!("Error getting the first column"))?.get(0))
     }
+
+    pub async fn get_all_users(&self) -> Result<Vec<UserId>> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT user_id FROM users");
+
+        let rows = QUERY.execute(self, &[]).await?;
+        Ok(rows.iter().map(|row| row.get(0)).collect())
+    }
 }
