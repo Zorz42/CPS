@@ -110,7 +110,22 @@ impl Database {
     pub async fn add_user_to_contest(&self, user_id: UserId, contest_id: ContestId) -> Result<()> {
         static QUERY: DatabaseQuery = DatabaseQuery::new("INSERT INTO contest_participations (contest_id, user_id) VALUES ($1, $2)");
 
+        if self.is_user_in_contest(user_id, contest_id).await? {
+            return Ok(());
+        }
+
         QUERY.execute(self, &[&contest_id, &user_id]).await?;
+        Ok(())
+    }
+
+    pub async fn remove_user_from_contest(&self, user_id: UserId, contest_id: ContestId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM contest_participations WHERE user_id = $1 AND contest_id = $2");
+
+        if !self.is_user_in_contest(user_id, contest_id).await? {
+            return Ok(());
+        }
+
+        QUERY.execute(self, &[&user_id, &contest_id]).await?;
         Ok(())
     }
 
@@ -119,5 +134,11 @@ impl Database {
 
         QUERY.execute(self, &[&user_id]).await?;
         Ok(())
+    }
+
+    pub async fn is_user_in_contest(&self, user_id: UserId, contest_id: ContestId) -> Result<bool> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT user_id FROM contest_participations WHERE user_id = $1 AND contest_id = $2");
+
+        Ok(!QUERY.execute(self, &[&user_id, &contest_id]).await?.is_empty())
     }
 }

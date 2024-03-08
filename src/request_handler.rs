@@ -1,4 +1,4 @@
-use crate::contest::create_contest_page;
+use crate::contest::{create_contest_page, handle_participant_modification};
 use crate::database::Database;
 use crate::main_page::create_main_page;
 use crate::problem::create_problem_page;
@@ -50,9 +50,15 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             }
 
             if parts.len() == 5 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submit_file" {
-                if let Some(result) = handle_submission_form(&database, user, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), request, &workers).await? {
-                    return Ok(result);
-                }
+                return handle_submission_form(&database, user, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), request, &workers)
+                    .await?
+                    .map_or_else(|| create_html_response(&NotFoundSite), Ok);
+            }
+
+            if parts.len() == 2 && parts.first().unwrap_or(&"") == &"modify_participants" {
+                return handle_participant_modification(&database, parts.get(1).unwrap_or(&""), user, request)
+                    .await?
+                    .map_or_else(|| create_html_response(&NotFoundSite), Ok);
             }
         } else {
             return create_html_response(&LoginSite {

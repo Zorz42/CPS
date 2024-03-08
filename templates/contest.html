@@ -14,6 +14,22 @@
 
     <h1>{{ contest_name }}</h1>
 
+    {% if is_admin %}
+    <h2>Participants</h2>
+    <form action="/modify_participants/{{ contest_id }}" method="post">
+
+        {% for (user, id, in_contest) in users %}
+        <div class="participant-div">
+            <input type="checkbox" id="user_{{ user }}" name="user_{{ id }}" {% if in_contest %} checked {% endif %}>
+            <label for="user_{{ user }}">{{ user }}</label>
+        </div>
+        {% endfor %}
+
+        <input class="create-submit-button hoverable lighter element" type="submit" value="Save">
+
+    </form>
+    {% endif %}
+
 </div>
 </body>
 
