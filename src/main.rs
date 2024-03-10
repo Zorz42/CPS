@@ -101,6 +101,7 @@ struct ConfigFile {
     db_password: Option<String>,
     db_name: Option<String>,
     port: Option<u16>,
+    num_workers: Option<i32>,
 }
 
 #[derive(serde::Serialize)]
@@ -110,6 +111,7 @@ struct Config {
     db_password: String,
     db_name: String,
     port: u16,
+    num_workers: i32,
 }
 
 const CONFIG_FILE: &str = "cps_config.toml";
@@ -124,7 +126,8 @@ fn get_config() -> Result<Config> {
         db_username: config.db_username.unwrap_or_else(|| "postgres".to_owned()),
         db_password: config.db_password.unwrap_or_else(|| "postgres".to_owned()),
         db_name: config.db_name.unwrap_or_else(|| "cps".to_owned()),
-        port: config.port.unwrap_or(3000),
+        port: config.port.unwrap_or(443),
+        num_workers: config.num_workers.unwrap_or(8),
     };
 
     // save the config to the file
@@ -155,7 +158,7 @@ async fn main() -> Result<()> {
 
     // init_temporary_data(&database).await?; // this should be called once and then it stays in the database
 
-    let workers = WorkerManager::new(32, &database);
+    let workers = WorkerManager::new(config.num_workers as usize, &database);
 
     let server_config = get_server_https_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
