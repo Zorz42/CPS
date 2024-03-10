@@ -306,4 +306,10 @@ impl Database {
             .ok_or_else(|| anyhow!("No submission with id {}", submission_id))?
             .get(0))
     }
+
+    pub async fn get_submissions_for_problem(&self, problem_id: ProblemId) -> Result<Vec<SubmissionId>> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT submission_id FROM submissions WHERE problem_id = $1");
+
+        Ok(QUERY.execute(self, &[&problem_id]).await?.iter().map(|row| row.get(0)).collect())
+    }
 }

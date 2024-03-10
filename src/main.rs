@@ -105,7 +105,7 @@ struct ConfigFile {
     num_workers: Option<i32>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct Config {
     pub db_host: String,
     pub db_username: String,
