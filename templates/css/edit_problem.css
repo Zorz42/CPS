@@ -1,0 +1,26 @@
+#content {
+    width: 100%;
+    padding-left: 20px;
+}
+
+#statement-form {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    width: 50%;
+    min-width: 400px;
+}
+
+#description {
+    height: 400px;
+    margin: 20px 0;
+}
+
+#statement-save-button {
+    width: 100px;
+    margin-top: 20px;
+}
+
+#title {
+    width: 50%;
+}

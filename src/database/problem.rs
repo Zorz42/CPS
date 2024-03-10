@@ -171,4 +171,18 @@ impl Database {
 
         Ok(())
     }
+
+    pub async fn set_problem_description(&self, problem_id: ProblemId, problem_description: &str) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE problems SET problem_description = $2 WHERE problem_id = $1");
+
+        QUERY.execute(self, &[&problem_id, &problem_description]).await?;
+        Ok(())
+    }
+
+    pub async fn set_problem_name(&self, problem_id: ProblemId, problem_name: &str) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE problems SET problem_name = $2 WHERE problem_id = $1");
+
+        QUERY.execute(self, &[&problem_id, &problem_name]).await?;
+        Ok(())
+    }
 }

@@ -1,7 +1,7 @@
 use crate::contest::{create_contest_page, handle_participant_modification};
 use crate::database::Database;
 use crate::main_page::create_main_page;
-use crate::problem::create_problem_page;
+use crate::problem::{create_edit_problem_page, create_problem_page, handle_problem_editing};
 use crate::submission::{create_submission_page, handle_submission_form};
 use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form, handle_user_creation, LoginSite};
 use crate::worker::WorkerManager;
@@ -60,6 +60,12 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
                     .await?
                     .map_or_else(|| create_html_response(&NotFoundSite), Ok);
             }
+
+            if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"edit_problem" {
+                return handle_problem_editing(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user, request)
+                    .await?
+                    .map_or_else(|| create_html_response(&NotFoundSite), Ok);
+            }
         } else {
             return create_html_response(&LoginSite {
                 error_message: "You must be logged in to perform this action".to_owned(),
@@ -80,6 +86,7 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
                 "contest.css" => Some(include_bytes!("../templates/css/contest.css").to_vec()),
                 "submission.css" => Some(include_bytes!("../templates/css/submission.css").to_vec()),
                 "login.css" => Some(include_bytes!("../templates/css/login.css").to_vec()),
+                "edit_problem.css" => Some(include_bytes!("../templates/css/edit_problem.css").to_vec()),
                 _ => None,
             };
 
@@ -106,6 +113,12 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
 
             if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" {
                 if let Some(result) = create_problem_page(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user).await? {
+                    return Ok(result);
+                }
+            }
+
+            if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"edit_problem" && is_admin {
+                if let Some(result) = create_edit_problem_page(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user).await? {
                     return Ok(result);
                 }
             }

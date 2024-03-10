@@ -90,7 +90,7 @@ fn get_server_https_config() -> Result<ServerConfig> {
 
     // build server config
     Ok(ServerConfig::builder()
-        .with_no_client_auth() //for now, i'll have to check what this is and verify things
+        .with_no_client_auth() // For now, I will have to check what this is and verify things
         .with_single_cert(certificates, key)?)
 }
 
