@@ -63,6 +63,8 @@ pub async fn handle_login_form(database: &Database, request: Request<Incoming>) 
 
         response.headers_mut().append(SET_COOKIE, format!("login_token={token}").parse()?);
 
+        println!("Logged in with username: \"{username}\"");
+
         Ok(response)
     } else {
         let error_message = {
@@ -73,6 +75,8 @@ pub async fn handle_login_form(database: &Database, request: Request<Incoming>) 
             }
         };
 
+        println!("Failed to log in: {error_message}, with username: \"{username}\" and password: \"{password}\"");
+
         let response = create_html_response(&LoginSite { error_message })?;
 
         Ok(response)
@@ -80,6 +84,8 @@ pub async fn handle_login_form(database: &Database, request: Request<Incoming>) 
 }
 
 pub async fn handle_logout_form(database: &Database, token: Option<UserToken>) -> Result<Response<Full<Bytes>>> {
+    println!("Logged out");
+
     let response = create_html_response(&RedirectSite { url: "/".to_owned() })?;
 
     if let Some(token) = token {
