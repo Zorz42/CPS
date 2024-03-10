@@ -105,19 +105,19 @@ struct ConfigFile {
 }
 
 #[derive(serde::Serialize)]
-struct Config {
-    db_host: String,
-    db_username: String,
-    db_password: String,
-    db_name: String,
-    port: u16,
-    num_workers: i32,
+pub struct Config {
+    pub db_host: String,
+    pub db_username: String,
+    pub db_password: String,
+    pub db_name: String,
+    pub port: u16,
+    pub num_workers: i32,
 }
 
 const CONFIG_FILE: &str = "cps_config.toml";
 
-fn get_config() -> Result<Config> {
-    let config_file_str = if Path::new(CONFIG_FILE).exists() { std::fs::read_to_string(CONFIG_FILE)? } else { String::new() };
+pub fn get_config(config_file: &str) -> Result<Config> {
+    let config_file_str = if Path::new(config_file).exists() { std::fs::read_to_string(config_file)? } else { String::new() };
 
     let config: ConfigFile = toml::from_str(&config_file_str)?;
 
@@ -131,18 +131,12 @@ fn get_config() -> Result<Config> {
     };
 
     // save the config to the file
-    std::fs::write(CONFIG_FILE, toml::to_string(&config)?)?;
+    std::fs::write(config_file, toml::to_string(&config)?)?;
 
     Ok(config)
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let config = get_config()?;
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    let listener = TcpListener::bind(addr).await?;
-
+pub async fn create_database(config: &Config) -> Result<Database> {
     let database = Database::new(&config.db_username, &config.db_password, &config.db_host, &config.db_name).await?;
     database.init_users().await?;
     database.init_contests().await?;
@@ -150,15 +144,20 @@ async fn main() -> Result<()> {
     database.init_submissions().await?;
     database.init_tests().await?;
 
+    Ok(database)
+}
+
+pub async fn run_server(config: &Config, database: &Database) -> Result<()> {
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
+    let listener = TcpListener::bind(addr).await?;
+
     if !is_isolate_installed().await {
         println!(
             "Warning: isolate is not installed. This means that the testing system will be unsafe. Please install isolate to ensure that arbitrary code sent by users is run in a safe environment."
         );
     }
 
-    // init_temporary_data(&database).await?; // this should be called once and then it stays in the database
-
-    let workers = WorkerManager::new(config.num_workers as usize, &database);
+    let workers = WorkerManager::new(config.num_workers as usize, database);
 
     let server_config = get_server_https_config();
     let tls_acceptor = if let Ok(mut server_config) = server_config {
@@ -206,4 +205,14 @@ async fn main() -> Result<()> {
             }
         });
     }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let config = get_config(CONFIG_FILE)?;
+    let database = create_database(&config).await?;
+
+    run_server(&config, &database).await?;
+
+    Ok(())
 }
