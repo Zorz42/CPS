@@ -9,9 +9,6 @@ readme = "README.md"
 keywords = ["cp", "contest", "server", "judge"]
 categories = ["data-structures", "database", "web-programming::http-server"]
 
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 hyper = { version = "1.1", features = ["full"] }
 tokio = { version = "1.36", features = ["full"] }
@@ -29,7 +26,7 @@ bcrypt = { version = "0.15", default-features = false, features = ["std"] }
 tokio-postgres = { version = "0.7", default-features = false, features = ["with-chrono-0_4", "default"] }
 chrono = { version = "0.4", default-features = false }
 toml = { version = "0.8", default-features = false, features = ["preserve_order", "parse", "display"] }
-serde = { version = "1.0.197", default-features = false, features = ["derive"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [profile.release]
 strip = true
