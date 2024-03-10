@@ -6,6 +6,7 @@ mod request_handler;
 mod sidebar;
 mod submission;
 mod tester;
+mod tests;
 mod user;
 mod worker;
 

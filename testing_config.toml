@@ -1,0 +1,6 @@
+db_host = "127.0.0.1"
+db_username = "test"
+db_password = "test"
+db_name = "cps"
+port = 4000
+num_workers = 8
