@@ -1,9 +1,9 @@
 use crate::contest::{create_contest_page, handle_participant_modification};
 use crate::database::Database;
 use crate::main_page::create_main_page;
-use crate::problem::{create_edit_problem_page, create_problem_page, handle_problem_editing};
+use crate::problem::{create_edit_problem_page, create_new_problem, create_problem_page, handle_problem_editing};
 use crate::submission::{create_submission_page, handle_submission_form};
-use crate::user::{create_login_page, get_login_token, handle_login_form, handle_logout_form, handle_user_creation, LoginSite};
+use crate::user::{create_login_page, delete_user, get_login_token, handle_login_form, handle_logout_form, handle_user_creation, LoginSite};
 use crate::worker::WorkerManager;
 use anyhow::Result;
 use askama::Template;
@@ -29,8 +29,16 @@ pub struct RedirectSite {
 #[template(path = "not_found.html")]
 pub struct NotFoundSite;
 
-#[allow(clippy::too_many_lines)]
 pub async fn handle_request(request: Request<Incoming>, database: Database, workers: WorkerManager) -> Result<Response<Full<Bytes>>> {
+    let res = handle_request_inner(request, database, workers).await;
+    if let Err(err) = &res {
+        eprintln!("Error: {err}");
+    }
+    res
+}
+
+#[allow(clippy::too_many_lines)]
+async fn handle_request_inner(request: Request<Incoming>, database: Database, workers: WorkerManager) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request)?;
     let user = if let Some(token) = &token { database.get_user_from_token(token.clone()).await? } else { None };
     let is_admin = if let Some(user) = user { database.is_user_admin(user).await? } else { false };
@@ -142,6 +150,14 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
                     };
                     return Ok(create_raw_response(Bytes::from(test_input)));
                 }
+            }
+
+            if is_admin && parts.len() == 2 && parts.first().unwrap_or(&"") == &"add_problem" {
+                return create_new_problem(&database, parts.get(1).unwrap_or(&"")).await;
+            }
+
+            if is_admin && parts.len() == 2 && parts.first().unwrap_or(&"") == &"delete_user" {
+                return delete_user(&database, parts.get(1).unwrap_or(&"")).await;
             }
         } else {
             return create_html_response(&LoginSite {

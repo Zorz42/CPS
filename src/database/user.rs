@@ -71,6 +71,7 @@ impl Database {
         self.delete_all_tokens_for_user(user_id).await?;
         self.remove_user_from_all_contests(user_id).await?;
         self.delete_all_submissions_for_user(user_id).await?;
+        self.remove_user_scores(user_id).await?;
         QUERY.execute(self, &[&user_id]).await?;
 
         Ok(())

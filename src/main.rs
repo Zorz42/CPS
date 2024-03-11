@@ -158,6 +158,31 @@ pub async fn run_server(config: &Config, database: &Database) -> Result<()> {
         );
     }
 
+    let create_admin = if let Some(user_id) = database.get_user_from_username("admin").await? {
+        !database.is_user_admin(user_id).await?
+    } else {
+        true
+    };
+
+    if create_admin {
+        // create a random alphanumeric password
+        let mut password = String::new();
+        for _ in 0..16 {
+            let c = rand::random::<u8>() % 62;
+            if c < 10 {
+                password.push((c + b'0') as char);
+            } else if c < 36 {
+                password.push((c - 10 + b'A') as char);
+            } else {
+                password.push((c - 36 + b'a') as char);
+            }
+        }
+
+        println!("Admin account is not set up. Creating admin account with password: {password}");
+
+        database.add_user_override("admin", &password, true).await?;
+    }
+
     let workers = WorkerManager::new(config.num_workers as usize, database);
 
     let server_config = get_server_https_config();

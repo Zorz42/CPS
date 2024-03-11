@@ -16,6 +16,8 @@
     <h1>{{ contest_name }}</h1>
 
     {% if is_admin %}
+    <a href="/add_problem/{{ contest_id }}" class="hoverable lighter element">Add a problem</a>
+    
     <h2>Participants</h2>
     <form action="/modify_participants/{{ contest_id }}" method="post">
 

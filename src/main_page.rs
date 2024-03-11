@@ -12,7 +12,7 @@ use hyper::Response;
 #[template(path = "main.html")]
 pub struct MainSite {
     sidebar_context: SidebarContext,
-    users: Vec<String>,
+    users: Vec<(String, UserId)>,
     is_admin: bool,
 }
 
@@ -22,7 +22,7 @@ pub async fn create_main_page(database: &Database, user: Option<UserId>) -> Resu
     let mut users = vec![];
     for user_id in user_ids {
         if let Some(username) = database.get_username(user_id).await? {
-            users.push(username);
+            users.push((username, user_id));
         }
     }
 

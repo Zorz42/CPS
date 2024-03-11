@@ -1,4 +1,5 @@
 use crate::database::contest::ContestId;
+use crate::database::user::UserId;
 use crate::database::{Database, DatabaseQuery};
 use anyhow::{anyhow, Result};
 
@@ -183,6 +184,19 @@ impl Database {
         static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE problems SET problem_name = $2 WHERE problem_id = $1");
 
         QUERY.execute(self, &[&problem_id, &problem_name]).await?;
+        Ok(())
+    }
+
+    pub async fn problem_with_name_exists(&self, problem_name: &str) -> bool {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("SELECT problem_id FROM problems WHERE problem_name = $1");
+
+        QUERY.execute(self, &[&problem_name]).await.ok().is_some_and(|rows| !rows.is_empty())
+    }
+
+    pub async fn remove_user_scores(&self, user_id: UserId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM user_problem_scores WHERE user_id = $1");
+
+        QUERY.execute(self, &[&user_id]).await?;
         Ok(())
     }
 }

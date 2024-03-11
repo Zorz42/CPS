@@ -38,8 +38,8 @@
     </form>
 
     <h2>Users:</h2>
-    {% for user in users %}
-    <p>{{ user }}</p>
+    {% for (user, user_id) in users %}
+    <p>{{ user }} <a href="/delete_user/{{ user_id }}">Delete</a></p>
     {% endfor %}
 
     {% endif %}

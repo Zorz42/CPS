@@ -120,3 +120,10 @@ pub async fn handle_user_creation(database: &Database, request: Request<Incoming
 
     Ok(response)
 }
+
+pub async fn delete_user(database: &Database, user_id: &str) -> Result<Response<Full<Bytes>>> {
+    let user_id = user_id.parse()?;
+
+    database.delete_user(user_id).await?;
+    create_html_response(&RedirectSite { url: "/".to_owned() })
+}

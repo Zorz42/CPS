@@ -6,7 +6,7 @@ use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
 use crate::sidebar::{create_sidebar_context, SidebarContext};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use askama::Template;
 use http_body_util::BodyExt;
 use http_body_util::Full;
@@ -194,4 +194,30 @@ pub async fn handle_problem_editing(database: &Database, contest_id: &str, probl
     }
 
     Ok(None)
+}
+
+pub async fn create_new_problem(database: &Database, contest_id: &str) -> Result<Response<Full<Bytes>>> {
+    if let Ok(contest_id) = contest_id.parse::<ContestId>() {
+        if !database.is_contest_id_valid(contest_id).await {
+            bail!("Invalid contest id");
+        }
+
+        let mut problem_number = 1;
+        while database.problem_with_name_exists(&format!("Problem {problem_number}")).await {
+            problem_number += 1;
+            if problem_number > 1000 {
+                bail!("Too many problems: an error occured");
+            }
+        }
+
+        let problem_id = database.add_problem_override(&format!("Problem {problem_number}"), "Insert description here...", contest_id).await?;
+
+        database.add_problem_to_contest(contest_id, problem_id).await?;
+
+        return create_html_response(&RedirectSite {
+            url: format!("/contest/{contest_id}/edit_problem/{problem_id}"),
+        });
+    }
+
+    bail!("Invalid contest id");
 }
