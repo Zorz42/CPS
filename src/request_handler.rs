@@ -11,9 +11,12 @@ use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
 use hyper::{Request, Response};
 
+pub fn create_raw_response(data: Bytes) -> Response<Full<Bytes>> {
+    Response::new(Full::new(data))
+}
+
 pub fn create_html_response<T: Template>(site_object: &T) -> Result<Response<Full<Bytes>>> {
-    let response = Response::new(Full::new(Bytes::from(site_object.render()?)));
-    Ok(response)
+    Ok(create_raw_response(Bytes::from(site_object.render()?)))
 }
 
 #[derive(Template)]
@@ -26,6 +29,7 @@ pub struct RedirectSite {
 #[template(path = "not_found.html")]
 pub struct NotFoundSite;
 
+#[allow(clippy::too_many_lines)]
 pub async fn handle_request(request: Request<Incoming>, database: Database, workers: WorkerManager) -> Result<Response<Full<Bytes>>> {
     let token = get_login_token(&request)?;
     let user = if let Some(token) = &token { database.get_user_from_token(token.clone()).await? } else { None };
@@ -126,6 +130,17 @@ pub async fn handle_request(request: Request<Incoming>, database: Database, work
             if parts.len() == 6 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submission" {
                 if let Some(result) = create_submission_page(&database, parts.get(5).unwrap_or(&""), user).await? {
                     return Ok(result);
+                }
+            }
+
+            if is_admin && parts.len() == 2 && (parts.first().unwrap_or(&"") == &"test_input" || parts.first().unwrap_or(&"") == &"test_output") {
+                if let Ok(test_id) = parts.get(1).unwrap_or(&"").parse::<i32>() {
+                    let test_input = if parts.first().unwrap_or(&"") == &"test_input" {
+                        database.get_test_data(test_id).await?.0
+                    } else {
+                        database.get_test_data(test_id).await?.1
+                    };
+                    return Ok(create_raw_response(Bytes::from(test_input)));
                 }
             }
         } else {

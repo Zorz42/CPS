@@ -1,6 +1,7 @@
 use crate::database::contest::ContestId;
 use crate::database::problem::ProblemId;
 use crate::database::submission::{testing_result_to_short_string, SubmissionId, TestingResult};
+use crate::database::test::{SubtaskId, TestId};
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
@@ -35,6 +36,7 @@ pub struct EditProblemSite {
     problem_name: String,
     problem_description: String,
     sidebar_context: SidebarContext,
+    subtasks: Vec<(SubtaskId, Vec<TestId>)>,
 }
 
 pub async fn create_problem_page(database: &Database, contest_id: &str, problem_id: &str, user_id: UserId) -> Result<Option<Response<Full<Bytes>>>> {
@@ -99,12 +101,22 @@ pub async fn create_edit_problem_page(database: &Database, contest_id: &str, pro
 
         let problem_description = database.get_problem_description(problem_id).await?;
 
+        let mut subtasks = Vec::new();
+        for subtask_id in database.get_subtasks_for_problem(problem_id).await? {
+            let mut tests = Vec::new();
+            for test_id in database.get_tests_for_subtask(subtask_id).await? {
+                tests.push(test_id);
+            }
+            subtasks.push((subtask_id, tests));
+        }
+
         return Ok(Some(create_html_response(&EditProblemSite {
             contest_id,
             problem_id,
             problem_description,
             problem_name: database.get_problem_name(problem_id).await?,
             sidebar_context: create_sidebar_context(database, Some(user_id)).await?,
+            subtasks,
         })?));
     }
 

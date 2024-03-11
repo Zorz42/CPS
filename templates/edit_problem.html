@@ -20,6 +20,18 @@
         <input id="statement-save-button" type="submit" value="Save">
     </form>
 
+    {% for (i, (subtask_id, tests)) in subtasks.iter().enumerate() %}
+
+    <h2>Subtask {{ i + 1 }}</h2>
+
+    {% for test_id in tests %}
+
+    <h3>Test (ID: {{ test_id }}) <a href="/test_input/{{ test_id }}">Input</a> <a href="/test_output/{{ test_id }}">Output</a></h3>
+
+    {% endfor %}
+
+    {% endfor %}
+
 </div>
 
 </body>
