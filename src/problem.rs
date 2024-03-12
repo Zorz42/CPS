@@ -56,7 +56,12 @@ pub async fn create_problem_page(database: &Database, contest_id: &str, problem_
                 let total_points = database.get_problem_total_points(problem_id).await?;
                 let points = database.get_submission_points(id).await?.unwrap_or(0);
                 let result = database.get_submission_result(id).await?;
-                let message = testing_result_to_short_string(result);
+                let mut message = testing_result_to_short_string(result);
+
+                if result == TestingResult::Testing {
+                    let percent = (database.get_submission_tests_done(id).await? as f64 / database.get_tests_for_submission(id).await?.len() as f64 * 100.0).round();
+                    message = format!("{message} ({percent}%)");
+                }
 
                 let hide_score = result == TestingResult::InQueue || result == TestingResult::Testing || result == TestingResult::CompilationError || result == TestingResult::Compiling;
 
