@@ -236,8 +236,8 @@ pub struct CPSTests {
 }
 
 pub async fn handle_tests_uploading(database: &Database, contest_id: &str, problem_id: &str, request: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
-    let contest_id = contest_id.parse::<ContestId>().map_err(|_| anyhow!("Invalid contest id"))?;
-    let problem_id = problem_id.parse::<ProblemId>().map_err(|_| anyhow!("Invalid problem id"))?;
+    let contest_id = contest_id.parse::<ContestId>().map_err(|_e| anyhow!("Invalid contest id"))?;
+    let problem_id = problem_id.parse::<ProblemId>().map_err(|_e| anyhow!("Invalid problem id"))?;
 
     if !database.is_contest_id_valid(contest_id).await {
         bail!("Invalid contest id");
@@ -257,7 +257,7 @@ pub async fn handle_tests_uploading(database: &Database, contest_id: &str, probl
 
     let mut db_tests = Vec::new();
 
-    for (input, output) in tests.tests.into_iter() {
+    for (input, output) in tests.tests {
         let test_id = database.add_test(&input, &output, problem_id).await?;
         db_tests.push(test_id);
     }
@@ -265,11 +265,11 @@ pub async fn handle_tests_uploading(database: &Database, contest_id: &str, probl
     for (tests, points) in tests.subtask_tests.into_iter().zip(tests.subtask_points.into_iter()) {
         let subtask_id = database.add_subtask(problem_id, points).await?;
         for test in tests {
-            database.add_test_to_subtask(subtask_id, db_tests[test]).await?;
+            database.add_test_to_subtask(subtask_id, *db_tests.get(test).ok_or_else(|| anyhow!("Invalid test index"))?).await?;
         }
     }
 
-    Ok(create_html_response(&RedirectSite {
+    create_html_response(&RedirectSite {
         url: format!("/contest/{contest_id}/edit_problem/{problem_id}"),
-    })?)
+    })
 }

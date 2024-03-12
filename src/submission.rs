@@ -23,18 +23,18 @@ pub struct SubmissionSite {
     sidebar_context: SidebarContext,
 }
 
-fn split_bytes_by_bytes(data: Vec<u8>, splitter: Vec<u8>) -> Vec<Vec<u8>> {
+fn split_bytes_by_bytes(data: &[u8], splitter: &[u8]) -> Vec<Vec<u8>> {
     let mut res = Vec::new();
     let mut current = Vec::new();
     let mut i = 0;
 
     while i < data.len() {
-        if data[i..].starts_with(&splitter) {
+        if data.get(i..).unwrap_or(b"").starts_with(splitter) {
             res.push(current);
             current = Vec::new();
             i += splitter.len();
         } else {
-            current.push(data[i]);
+            current.push(*data.get(i).unwrap_or(&0));
             i += 1;
         }
     }
@@ -44,13 +44,13 @@ fn split_bytes_by_bytes(data: Vec<u8>, splitter: Vec<u8>) -> Vec<Vec<u8>> {
     res
 }
 
-fn join_bytes(data: Vec<Vec<u8>>, splitter: Vec<u8>) -> Vec<u8> {
+fn join_bytes(data: &[Vec<u8>], splitter: &[u8]) -> Vec<u8> {
     let mut res = Vec::new();
 
     for (i, part) in data.iter().enumerate() {
         res.extend_from_slice(part);
         if i != data.len() - 1 {
-            res.extend_from_slice(&splitter);
+            res.extend_from_slice(splitter);
         }
     }
 
@@ -85,18 +85,18 @@ pub async fn extract_file_from_request(request: Request<Incoming>) -> Result<Vec
 
     let body = request.into_body().collect().await?.to_bytes().to_vec();
 
-    let mut parts = split_bytes_by_bytes(body, boundary);
+    let mut parts = split_bytes_by_bytes(&body, &boundary);
     parts.retain(|x| !x.is_empty());
     parts.pop();
     let part = parts.first().ok_or_else(|| anyhow!("No file in request"))?;
-    let mut code_parts = split_bytes_by_bytes(part.to_vec(), "\r\n".as_bytes().to_vec());
+    let mut code_parts = split_bytes_by_bytes(part, b"\r\n");
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.pop();
 
-    Ok(join_bytes(code_parts, "\r\n".as_bytes().to_vec()))
+    Ok(join_bytes(&code_parts, b"\r\n"))
 }
 
 pub async fn handle_submission_form(

@@ -87,7 +87,7 @@ pub async fn handle_problem_deletion_from_contest(database: &Database, contest_i
 
     database.remove_problem_from_contest(contest_id, problem_id).await?;
 
-    Ok(create_html_response(&RedirectSite {
+    create_html_response(&RedirectSite {
         url: format!("/contest/{contest_id}"),
-    })?)
+    })
 }
