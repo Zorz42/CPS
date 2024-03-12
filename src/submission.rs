@@ -23,7 +23,41 @@ pub struct SubmissionSite {
     sidebar_context: SidebarContext,
 }
 
-async fn extract_file_from_request(request: Request<Incoming>) -> Result<String> {
+fn split_bytes_by_bytes(data: Vec<u8>, splitter: Vec<u8>) -> Vec<Vec<u8>> {
+    let mut res = Vec::new();
+    let mut current = Vec::new();
+    let mut i = 0;
+
+    while i < data.len() {
+        if data[i..].starts_with(&splitter) {
+            res.push(current);
+            current = Vec::new();
+            i += splitter.len();
+        } else {
+            current.push(data[i]);
+            i += 1;
+        }
+    }
+
+    res.push(current);
+
+    res
+}
+
+fn join_bytes(data: Vec<Vec<u8>>, splitter: Vec<u8>) -> Vec<u8> {
+    let mut res = Vec::new();
+
+    for (i, part) in data.iter().enumerate() {
+        res.extend_from_slice(part);
+        if i != data.len() - 1 {
+            res.extend_from_slice(&splitter);
+        }
+    }
+
+    res
+}
+
+pub async fn extract_file_from_request(request: Request<Incoming>) -> Result<Vec<u8>> {
     let boundary = request
         .headers()
         .get("content-type")
@@ -47,23 +81,22 @@ async fn extract_file_from_request(request: Request<Incoming>) -> Result<String>
         })
         .unwrap_or_else(|| "no-boundary".to_owned());
 
-    let boundary = format!("--{boundary}");
+    let boundary = format!("--{boundary}").as_bytes().to_vec();
 
-    let body = request.into_body().collect().await?.to_bytes();
-    let body = String::from_utf8_lossy(&body).to_string();
+    let body = request.into_body().collect().await?.to_bytes().to_vec();
 
-    let mut parts = body.split(&boundary).collect::<Vec<&str>>();
+    let mut parts = split_bytes_by_bytes(body, boundary);
     parts.retain(|x| !x.is_empty());
     parts.pop();
     let part = parts.first().ok_or_else(|| anyhow!("No file in request"))?;
-    let mut code_parts = part.split("\r\n").collect::<Vec<&str>>();
+    let mut code_parts = split_bytes_by_bytes(part.to_vec(), "\r\n".as_bytes().to_vec());
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.remove(0);
     code_parts.pop();
 
-    Ok(code_parts.join("\r\n\r\n"))
+    Ok(join_bytes(code_parts, "\r\n".as_bytes().to_vec()))
 }
 
 pub async fn handle_submission_form(
@@ -75,6 +108,7 @@ pub async fn handle_submission_form(
     workers: &WorkerManager,
 ) -> Result<Option<Response<Full<Bytes>>>> {
     let code = extract_file_from_request(request).await?;
+    let code = String::from_utf8_lossy(&code).to_string();
 
     if !code.is_empty() {
         database.add_submission(user_id, problem_id.parse()?, code, workers).await?;

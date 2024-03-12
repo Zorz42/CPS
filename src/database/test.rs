@@ -249,4 +249,26 @@ impl Database {
         QUERY.execute(self, &[&submission_id, &subtask_id, &testing_result_to_i32(result)]).await?;
         Ok(())
     }
+
+    pub async fn remove_all_results_from_submission(&self, submission_id: SubmissionId) -> Result<()> {
+        static DELETE_TEST_RESULTS_QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM test_results WHERE submission_id = $1");
+        static DELETE_SUBTASK_RESULTS_QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM subtask_results WHERE submission_id = $1");
+
+        DELETE_TEST_RESULTS_QUERY.execute(self, &[&submission_id]).await?;
+        DELETE_SUBTASK_RESULTS_QUERY.execute(self, &[&submission_id]).await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_all_test_data_for_problem(&self, problem_id: ProblemId) -> Result<()> {
+        static DELETE_SUBTASK_TESTS_QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM subtask_tests WHERE test_id IN (SELECT test_id FROM tests WHERE problem_id = $1)");
+        static DELETE_TESTS_QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM tests WHERE problem_id = $1");
+        static DELETE_SUBTASKS_QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM subtasks WHERE problem_id = $1");
+
+        DELETE_SUBTASK_TESTS_QUERY.execute(self, &[&problem_id]).await?;
+        DELETE_TESTS_QUERY.execute(self, &[&problem_id]).await?;
+        DELETE_SUBTASKS_QUERY.execute(self, &[&problem_id]).await?;
+
+        Ok(())
+    }
 }

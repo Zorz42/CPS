@@ -1,7 +1,7 @@
 use crate::contest::{create_contest_page, handle_participant_modification};
 use crate::database::Database;
 use crate::main_page::create_main_page;
-use crate::problem::{create_edit_problem_page, create_new_problem, create_problem_page, handle_problem_editing};
+use crate::problem::{create_edit_problem_page, create_new_problem, create_problem_page, handle_problem_editing, handle_tests_uploading};
 use crate::submission::{create_submission_page, handle_submission_form};
 use crate::user::{create_login_page, delete_user, get_login_token, handle_login_form, handle_logout_form, handle_user_creation, LoginSite};
 use crate::worker::WorkerManager;
@@ -77,6 +77,10 @@ async fn handle_request_inner(request: Request<Incoming>, database: Database, wo
                 return handle_problem_editing(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user, request)
                     .await?
                     .map_or_else(|| create_html_response(&NotFoundSite), Ok);
+            }
+
+            if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"upload_tests" && is_admin {
+                return handle_tests_uploading(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), request).await;
             }
         } else {
             return create_html_response(&LoginSite {

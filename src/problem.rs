@@ -6,6 +6,7 @@ use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
 use crate::sidebar::{create_sidebar_context, SidebarContext};
+use crate::submission::extract_file_from_request;
 use anyhow::{anyhow, bail, Result};
 use askama::Template;
 use http_body_util::BodyExt;
@@ -210,7 +211,7 @@ pub async fn create_new_problem(database: &Database, contest_id: &str) -> Result
             }
         }
 
-        let problem_id = database.add_problem_override(&format!("Problem {problem_number}"), "Insert description here...", contest_id).await?;
+        let problem_id = database.add_problem_override(&format!("Problem {problem_number}"), "Insert description here...", 1000).await?;
 
         database.add_problem_to_contest(contest_id, problem_id).await?;
 
@@ -220,4 +221,50 @@ pub async fn create_new_problem(database: &Database, contest_id: &str) -> Result
     }
 
     bail!("Invalid contest id");
+}
+
+#[derive(serde::Deserialize)]
+pub struct CPSTests {
+    pub tests: Vec<(String, String)>,
+    pub subtask_tests: Vec<Vec<usize>>,
+    pub subtask_points: Vec<i32>,
+}
+
+pub async fn handle_tests_uploading(database: &Database, contest_id: &str, problem_id: &str, request: Request<Incoming>) -> Result<Response<Full<Bytes>>> {
+    let contest_id = contest_id.parse::<ContestId>().map_err(|_| anyhow!("Invalid contest id"))?;
+    let problem_id = problem_id.parse::<ProblemId>().map_err(|_| anyhow!("Invalid problem id"))?;
+
+    if !database.is_contest_id_valid(contest_id).await {
+        bail!("Invalid contest id");
+    }
+
+    if !database.is_problem_id_valid(problem_id).await {
+        bail!("Invalid problem id");
+    }
+
+    let file_contents = extract_file_from_request(request).await?;
+    let decompressed = snap::raw::Decoder::new().decompress_vec(file_contents.as_slice())?;
+
+    let tests: CPSTests = bincode::deserialize(decompressed.as_slice())?;
+
+    database.remove_all_submissions_testing_data_for_problem(problem_id).await?;
+    database.remove_all_test_data_for_problem(problem_id).await?;
+
+    let mut db_tests = Vec::new();
+
+    for (input, output) in tests.tests.into_iter() {
+        let test_id = database.add_test(&input, &output, problem_id).await?;
+        db_tests.push(test_id);
+    }
+
+    for (tests, points) in tests.subtask_tests.into_iter().zip(tests.subtask_points.into_iter()) {
+        let subtask_id = database.add_subtask(problem_id, points).await?;
+        for test in tests {
+            database.add_test_to_subtask(subtask_id, db_tests[test]).await?;
+        }
+    }
+
+    Ok(create_html_response(&RedirectSite {
+        url: format!("/contest/{contest_id}/edit_problem/{problem_id}"),
+    })?)
 }

@@ -20,6 +20,12 @@
         <input id="statement-save-button" type="submit" value="Save">
     </form>
 
+    <form id="test-data-form" method="post" action="/contest/{{ contest_id }}/upload_tests/{{ problem_id }}/" enctype="multipart/form-data">
+        <h2>Upload a CPT file.</h2>
+        <input id="test-data" type="file" name="test_data" required>
+        <input id="test-data-upload-button" type="submit" value="Upload">
+    </form>
+
     {% for (i, (subtask_id, tests)) in subtasks.iter().enumerate() %}
 
     <h2>Subtask {{ i + 1 }}</h2>

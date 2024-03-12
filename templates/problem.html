@@ -48,7 +48,7 @@
     <div class="submit-div element">
         <div>
             <h2>Submit a solution</h2>
-            <form method="post" enctype="multipart/form-data" action="{{ problem_id }}/submit_file">
+            <form method="post" enctype="multipart/form-data" action="/contest/{{ contest_id }}/problem/{{ problem_id }}/submit_file">
                 <input id="file" name="file" type="file" required/>
                 <button id="file-submit" class="hoverable lighter element">Submit</button>
             </form>

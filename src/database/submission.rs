@@ -312,4 +312,20 @@ impl Database {
 
         Ok(QUERY.execute(self, &[&problem_id]).await?.iter().map(|row| row.get(0)).collect())
     }
+
+    pub async fn remove_submission_testing_data(&self, submission_id: SubmissionId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("UPDATE submissions SET result = $1, tests_done = $2 WHERE submission_id = $3");
+
+        QUERY.execute(self, &[&testing_result_to_i32(TestingResult::InQueue), &0, &submission_id]).await?;
+        self.remove_all_results_from_submission(submission_id).await?;
+        Ok(())
+    }
+
+    pub async fn remove_all_submissions_testing_data_for_problem(&self, problem_id: ProblemId) -> Result<()> {
+        let submissions = self.get_submissions_for_problem(problem_id).await?;
+        for submission in submissions {
+            self.remove_submission_testing_data(submission).await?;
+        }
+        Ok(())
+    }
 }
