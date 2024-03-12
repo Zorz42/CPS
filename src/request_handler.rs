@@ -1,4 +1,4 @@
-use crate::contest::{create_contest_page, handle_participant_modification};
+use crate::contest::{create_contest_page, handle_participant_modification, handle_problem_deletion_from_contest};
 use crate::database::Database;
 use crate::main_page::create_main_page;
 use crate::problem::{create_edit_problem_page, create_new_problem, create_problem_page, handle_problem_editing, handle_tests_uploading};
@@ -137,6 +137,10 @@ async fn handle_request_inner(request: Request<Incoming>, database: Database, wo
                 if let Some(result) = create_edit_problem_page(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&""), user).await? {
                     return Ok(result);
                 }
+            }
+
+            if parts.len() == 4 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"delete_problem" && is_admin {
+                return handle_problem_deletion_from_contest(&database, parts.get(1).unwrap_or(&""), parts.get(3).unwrap_or(&"")).await;
             }
 
             if parts.len() == 6 && parts.first().unwrap_or(&"") == &"contest" && parts.get(2).unwrap_or(&"") == &"problem" && parts.get(4).unwrap_or(&"") == &"submission" {

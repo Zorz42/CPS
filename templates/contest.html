@@ -17,7 +17,11 @@
 
     {% if is_admin %}
     <a href="/add_problem/{{ contest_id }}" class="hoverable lighter element">Add a problem</a>
-    
+
+    {% for (problem_name, problem_id) in problems %}
+    <h4> {{ problem_name }} <a href="/contest/{{ contest_id }}/delete_problem/{{ problem_id }}">Delete</a></h4>
+    {% endfor %}
+
     <h2>Participants</h2>
     <form action="/modify_participants/{{ contest_id }}" method="post">
 

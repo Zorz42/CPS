@@ -1,4 +1,5 @@
 use crate::database::contest::ContestId;
+use crate::database::problem::ProblemId;
 use crate::database::user::UserId;
 use crate::database::Database;
 use crate::request_handler::{create_html_response, RedirectSite};
@@ -19,6 +20,7 @@ pub struct ContestSite {
     users: Vec<(String, UserId, bool)>,
     contest_id: ContestId,
     sidebar_context: SidebarContext,
+    problems: Vec<(String, ProblemId)>,
 }
 
 pub async fn create_contest_page(database: &Database, contest_id: &str, user: UserId) -> Result<Option<Response<Full<Bytes>>>> {
@@ -35,12 +37,19 @@ pub async fn create_contest_page(database: &Database, contest_id: &str, user: Us
                 }
             }
 
+            let mut problems = Vec::new();
+            for problem_id in database.get_problems_for_contest(contest_id).await? {
+                let problem_name = database.get_problem_name(problem_id).await?;
+                problems.push((problem_name, problem_id));
+            }
+
             return Ok(Some(create_html_response(&ContestSite {
                 contest_name,
                 is_admin,
                 users,
                 contest_id,
                 sidebar_context: create_sidebar_context(database, Some(user)).await?,
+                problems,
             })?));
         }
     }
@@ -70,4 +79,15 @@ pub async fn handle_participant_modification(database: &Database, contest_id: &s
         }
     }
     Ok(None)
+}
+
+pub async fn handle_problem_deletion_from_contest(database: &Database, contest_id: &str, problem_id: &str) -> Result<Response<Full<Bytes>>> {
+    let contest_id = contest_id.parse::<i32>()?;
+    let problem_id = problem_id.parse::<i32>()?;
+
+    database.remove_problem_from_contest(contest_id, problem_id).await?;
+
+    Ok(create_html_response(&RedirectSite {
+        url: format!("/contest/{contest_id}"),
+    })?)
 }

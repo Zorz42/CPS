@@ -199,4 +199,11 @@ impl Database {
         QUERY.execute(self, &[&user_id]).await?;
         Ok(())
     }
+
+    pub async fn remove_problem_from_contest(&self, contest_id: ContestId, problem_id: ProblemId) -> Result<()> {
+        static QUERY: DatabaseQuery = DatabaseQuery::new("DELETE FROM contest_problems WHERE contest_id = $1 AND problem_id = $2");
+
+        QUERY.execute(self, &[&contest_id, &problem_id]).await?;
+        Ok(())
+    }
 }
