@@ -30,7 +30,7 @@ pub async fn create_contest_page(database: &Database, contest_id: &str, user: Us
             let is_admin = database.is_user_admin(user).await?;
 
             let mut users = Vec::new();
-            for user_id in database.get_contests_for_user(user).await? {
+            for user_id in database.get_all_users().await? {
                 if let Some(username) = database.get_username(user_id).await? {
                     let is_in_contest = database.is_user_in_contest(user_id, contest_id).await?;
                     users.push((username, user_id, is_in_contest));
