@@ -37,13 +37,19 @@
 
 <div id="content">
     {% if is_admin %}
-    <a href="/contest/{{ contest_id }}/edit_problem/{{ problem_id }}/" class="hoverable lighter element">Edit</a>
+    <a href="/contest/{{ contest_id }}/edit_problem/{{ problem_id }}/">
+        <div class="hoverable lighter element edit-button">
+            Edit
+        </div>
+    </a>
     {% endif %}
 
-    <h1>{{ problem_name }}</h1>
-    <span class="katex-equation" style="white-space: pre">
-        {{ problem_description }}
-    </span>
+    <div class="element problem-statement">
+        <h1>{{ problem_name }}</h1>
+        <span class="katex-equation" style="white-space: pre">
+            {{ problem_description }}
+        </span>
+    </div>
 
     <div class="submit-div element">
         <div>

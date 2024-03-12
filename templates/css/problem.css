@@ -1,6 +1,7 @@
 #content {
     width: 100%;
     padding-left: 20px;
+    padding-top: 20px;
 }
 
 .submission {
@@ -29,4 +30,24 @@
 
 #file-submit {
     padding: 10px;
+}
+
+.problem-statement {
+    padding: 10px;
+    margin: 10px;
+}
+
+.edit-button {
+    margin-left: 10px;
+    padding: 10px;
+    color: white;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.edit-button:visited, .edit-button:hover, .edit-button:visited:hover {
+    color: white;
+    text-decoration: none;
 }
