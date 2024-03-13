@@ -16,25 +16,32 @@
     <h1>{{ contest_name }}</h1>
 
     {% if is_admin %}
-    <a href="/add_problem/{{ contest_id }}" class="hoverable lighter element">Add a problem</a>
+    <a href="/add_problem/{{ contest_id }}">
+        <div class="hoverable lighter element padded marged add-problem">Add a problem</div>
+    </a>
 
-    {% for (problem_name, problem_id) in problems %}
-    <h4> {{ problem_name }} <a href="/contest/{{ contest_id }}/delete_problem/{{ problem_id }}">Delete</a></h4>
-    {% endfor %}
-
-    <h2>Participants</h2>
-    <form action="/modify_participants/{{ contest_id }}" method="post">
-
-        {% for (user, id, in_contest) in users %}
-        <div class="participant-div">
-            <input type="checkbox" id="user_{{ user }}" name="user_{{ id }}" {% if in_contest %} checked {% endif %}>
-            <label for="user_{{ user }}">{{ user }}</label>
-        </div>
+    <div class="element padded marged">
+        <h2>Problems</h2>
+        {% for (problem_name, problem_id) in problems %}
+        <h4> {{ problem_name }} <a href="/contest/{{ contest_id }}/delete_problem/{{ problem_id }}">Delete</a></h4>
         {% endfor %}
+    </div>
 
-        <input class="create-submit-button hoverable lighter element" type="submit" value="Save">
+    <div class="element padded marged">
+        <h2>Participants</h2>
+        <form action="/modify_participants/{{ contest_id }}" method="post">
 
-    </form>
+            {% for (user, id, in_contest) in users %}
+            <div class="participant-div">
+                <input type="checkbox" id="user_{{ user }}" name="user_{{ id }}" {% if in_contest %} checked {% endif %}>
+                <label for="user_{{ user }}">{{ user }}</label>
+            </div>
+            {% endfor %}
+
+            <input class="create-submit-button hoverable lighter element padded marged" type="submit" value="Save">
+
+        </form>
+    </div>
     {% endif %}
 
 </div>
