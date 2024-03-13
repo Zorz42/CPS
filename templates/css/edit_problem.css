@@ -24,3 +24,13 @@
 #title {
     width: 50%;
 }
+
+.back-button {
+    margin-left: 10px;
+    padding: 10px;
+    color: white;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+}

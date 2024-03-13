@@ -12,29 +12,39 @@
 {% include "sidebar.html" %}
 
 <div id="content">
-    <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/" class="hoverable lighter element">Back</a>
+    <a href="/contest/{{ contest_id }}/problem/{{ problem_id }}/">
+        <div class="hoverable lighter element back-button">
+            Back
+        </div>
+    </a>
 
-    <form id="statement-form" method="post" action="/contest/{{ contest_id }}/edit_problem/{{ problem_id }}/" enctype="multipart/form-data">
-        <input id="title" type="text" name="name" value="{{ problem_name }}" required>
-        <textarea id="description" name="description" required>{{ problem_description }}</textarea>
-        <input id="statement-save-button" type="submit" value="Save">
-    </form>
+    <div class="element marged">
+        <form id="statement-form" method="post" action="/contest/{{ contest_id }}/edit_problem/{{ problem_id }}/" enctype="multipart/form-data">
+            <input class="hoverable lighter element padded" id="title" type="text" name="name" value="{{ problem_name }}" required>
+            <textarea class="hoverable lighter element padded" id="description" name="description" required>{{ problem_description }}</textarea>
+            <input class="hoverable lighter element padded" id="statement-save-button" type="submit" value="Save">
+        </form>
+    </div>
 
-    <form id="test-data-form" method="post" action="/contest/{{ contest_id }}/upload_tests/{{ problem_id }}/" enctype="multipart/form-data">
-        <h2>Upload a CPT file.</h2>
-        <input id="test-data" type="file" name="test_data" required>
-        <input id="test-data-upload-button" type="submit" value="Upload">
-    </form>
+    <div class="element padded marged half-width">
+        <form id="test-data-form" method="post" action="/contest/{{ contest_id }}/upload_tests/{{ problem_id }}/" enctype="multipart/form-data">
+            <h2>Upload a CPT file.</h2>
+            <input id="test-data" type="file" name="test_data" required>
+            <input class="hoverable lighter element padded" id="test-data-upload-button" type="submit" value="Upload">
+        </form>
+    </div>
 
     {% for (i, (subtask_id, tests)) in subtasks.iter().enumerate() %}
 
-    <h2>Subtask {{ i + 1 }}</h2>
+    <div class="element padded marged half-width">
+        <h2>Subtask {{ i + 1 }}</h2>
 
-    {% for test_id in tests %}
+        {% for test_id in tests %}
 
-    <h3>Test (ID: {{ test_id }}) <a href="/test_input/{{ test_id }}">Input</a> <a href="/test_output/{{ test_id }}">Output</a></h3>
+        <h3>Test (ID: {{ test_id }}) <a href="/test_input/{{ test_id }}">Input</a> <a href="/test_output/{{ test_id }}">Output</a></h3>
 
-    {% endfor %}
+        {% endfor %}
+    </div>
 
     {% endfor %}
 

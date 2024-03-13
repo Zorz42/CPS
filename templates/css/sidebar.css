@@ -134,3 +134,15 @@ a:visited:hover {
 a {
     transition: color 0.3s;
 }
+
+.padded {
+    padding: 10px;
+}
+
+.marged {
+    margin: 10px;
+}
+
+.half-width {
+    width: 50%;
+}
